@@ -1,0 +1,38 @@
+Bootstrap: docker
+From: mambaorg/micromamba:1.5.8
+
+%labels
+  Author Alicia Rich / lab 16S CPU toolbox
+  Description fastcat, NanoPlot, minimap2, samtools, vsearch, mafft, racon, spoa, pandas, isONclust3
+
+%files
+  16s-cpu.environment.yml /opt/env/16s-cpu.environment.yml
+
+# Force bash for %post so 'set -euo pipefail' is valid
+%post -c /bin/bash
+  set -euo pipefail
+  # Install conda packages from the pinned environment file
+  micromamba install -y -n base -f /opt/env/16s-cpu.environment.yml \
+    --channel-priority strict --no-rc
+  micromamba clean -a -y
+
+  # Install isONclust3 into the same conda Python
+  /opt/conda/bin/pip install --no-cache-dir \
+    'git+https://github.com/ksahlin/isONclust3@main'
+
+%environment
+  export CONDA_PREFIX=/opt/conda
+  export MAMBA_ROOT_PREFIX=/opt/conda
+  export PATH=/opt/conda/bin:$PATH
+  export LC_ALL=C.UTF-8
+  export LANG=C.UTF-8
+
+%help
+  16S CPU toolbox:
+    fastcat, NanoPlot, minimap2, samtools, vsearch, mafft, racon, spoa, isONclust3
+  Example:
+    apptainer exec 16s-cpu.sif minimap2 --version
+
+%runscript
+  # pass-through so you can 'apptainer run … <tool>'
+  exec "$@"

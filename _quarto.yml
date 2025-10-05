@@ -1,0 +1,19 @@
+project:
+  type: website
+  execute-dir: project
+editor: source  
+website:
+  title: NanoMB
+  description: |
+    A snakemake pipeline to generate fine-grained phylogenetic and taxonomic data for microbiome analysis, beginning with Oxford Nanopore pod5 files generated from full-length 16S sequencing and ending with phyloseq-ready files.
+  image: graphics/logo.png
+subtitle: "A custom snakemake pipeline for Oxford Nanopore Long-Read 16S Bioinformatics"
+date: now
+date-format: full
+author: Alicia M. Rich, Ph.D.
+email: aliciarich@unomaha.edu
+logo: graphics/logo.png
+copyright: |
+       This document is intended solely for members of the Rich Lab for Molecular Health at UNO.
+       The content, including any data presented herein, is unpublished, private, and not for use, distribution, or publication without explicit written consent from Dr. Alicia M. Rich.
+       Any adaptation or use of this material must acknowledge and cite this unpublished work.

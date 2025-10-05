@@ -1,0 +1,15 @@
+name: 16s-cpu
+channels: [conda-forge, bioconda, nanoporetech]
+dependencies:
+  - python=3.11
+  - pandas=2.2.*
+  - fastcat 
+  - vsearch=2.30.1        
+  - mafft=7.526           
+  - minimap2=2.30     
+  - samtools=1.22.*
+  - racon=1.5.0
+  - spoa=4.1.*
+  - nanoplot=1.42.*
+  - pigz
+  

@@ -1,0 +1,96 @@
+# --- Identity ---
+project: culi_16S
+sampleset: loris
+dataset:   culi
+
+# --- Root ---
+out_root: "$OUT_ROOT"   # e.g., /work/richlab/$USER/datasets/16s
+
+# --- Layout ---
+layout:
+  dataset_dir:   "{sampleset}/{dataset}"
+  raw_dir:       "{sampleset}/{dataset}/raw"
+  pod5_dir:      "{sampleset}/pod5"
+  basecall_dir:  "{sampleset}/basecalled"
+  demux_dir:     "{sampleset}/demuxed"
+  summary_dir:   "{sampleset}/dorado_summaries"
+  sample_sheet_dir: "{sampleset}/samples"
+  sample_sheet_name: "{run}_sample_sheet.csv"
+  sample_routing: "{sampleset}/samples/sample_to_dataset.tsv"
+
+# --- Start point (choose one) ---
+pod5_in: ""          # else defaults to layout.pod5_dir
+reads_in: ""         # else defaults to layout.raw_dir
+
+# --- Dorado / Medaka ---
+dorado_model_name: "sup"
+dorado_models_dir: "/mnt/nrdstor/richlab/shared/dorado_models"
+dorado_gpu: true
+dorado_extra: ""
+barcode_kit: "SQK-16S114-24"
+
+medaka_model: "r1041_e82_400bps_sup_v5.0.0"
+medaka_gpu: true
+
+# --- Trimming/QC/thresholds ---
+trim_emit_fastq: true
+trim_minlen: 1000
+trim_skip_glob: ["*NTC*", "*unclassified*"]
+
+minlength: 1300
+maxlength: 1700
+min_qscore: 15
+
+# --- References ---
+itgdb_udb:   "/mnt/nrdstor/richlab/shared/databases/itgdb_16s/taxa_itgdb.udb"
+silva_fasta: "/mnt/nrdstor/richlab/shared/databases/silva138/SILVA_138.2_SSURef_NR99_tax_silva.fasta"
+
+# --- OTUs / mapping / taxonomy ---
+otu_id_primary: 0.99
+otu_id_legacy:  0.97
+map_id: 0.98
+strand: both
+sintax_cutoff: 0.8
+min_unique_size: 1     # set 2 to suppress singletons
+
+# --- ASVs ---
+asv_method: nanoasv
+nanoasv_bin: nanoasv
+nanoasv_opts:
+  subsample_per_barcode: 0
+  mapq: 20
+
+# --- SPOA guards ---
+spoa_max_reads: 500     # cap per cluster to prevent timeouts
+spoa_min_reads: 3       # skip tiny clusters
+spoa_extra: ""          # room for tuning flags
+
+
+# --- Containers (single CPU image for most steps) ---
+container_cpu16s: "/mnt/nrdstor/richlab/shared/containers/16s-cpu.sif"
+container_medaka: "/mnt/nrdstor/richlab/shared/containers/medaka-gpu.sif"
+container_nanoasv: "/mnt/nrdstor/richlab/shared/containers/nanoasv.sif"
+container_dorado: "/mnt/nrdstor/richlab/shared/containers/dorado.sif"
+
+# --- Resources (Slurm) ---
+resources:
+  dorado_basecall: {threads: 8,  mem_mb: 32000, runtime: 180, partition: gpu,   account: richlab, extra: "--gres=gpu:1"}
+  dorado_demux:    {threads: 8,  mem_mb: 32000, runtime: 120, partition: gpu,   account: richlab, extra: "--gres=gpu:1"}
+  dorado_trim:     {threads: 8,  mem_mb: 32000, runtime: 240, partition: batch, account: richlab, extra: ""}
+
+  fastcat_filter:        {threads: 4,  mem_mb: 8000,  runtime: 60,  partition: guest, account: richlab}
+  nanoplot_qc:           {threads: 2,  mem_mb: 4000,  runtime: 30,  partition: guest, account: richlab}
+
+  isonclust3:            {threads: 16, mem_mb: 32000, runtime: 240, partition: batch, account: richlab}
+  spoa_consensus:        {threads: 8,  mem_mb: 16000, runtime: 240, partition: batch, account: richlab}
+
+  vsearch_pool_cluster:  {threads: 16, mem_mb: 32000, runtime: 300, partition: batch, account: richlab}
+  map_all_reads:         {threads: 16, mem_mb: 16000, runtime: 180, partition: batch, account: richlab}
+  racon_round1:          {threads: 16, mem_mb: 16000, runtime: 120, partition: batch, account: richlab}
+  map_r1:                {threads: 16, mem_mb: 16000, runtime: 180, partition: batch, account: richlab}
+  racon_round2:          {threads: 16, mem_mb: 16000, runtime: 120, partition: batch, account: richlab}
+  medaka_polish:         {threads: 16, mem_mb: 16000, runtime: 240, partition: gpu,   account: richlab, extra: "--gres=gpu:1"}
+  chimera_taxonomy_tree: {threads: 16, mem_mb: 32000, runtime: 240, partition: batch, account: richlab}
+  iqtree2_tree:          {threads: 16, mem_mb: 64000, runtime: 720, partition: batch, account: richlab}
+  otu_table_per_sample:  {threads: 16, mem_mb: 16000, runtime: 180, partition: batch, account: richlab}
+  asv_nanoasv:           {threads: 16, mem_mb: 32000, runtime: 360, partition: batch, account: richlab}

@@ -1,0 +1,27 @@
+executor: slurm
+jobs: 16
+
+default-resources:
+  - mem_mb=8000
+  - runtime=60
+  - partition=guest
+  - account=richlab
+  - extra=""
+
+use-conda: false
+use-apptainer: true
+apptainer-args: "--bind /work,/lustre,/mnt/nrdstor,/home"
+
+latency-wait: 60
+restart-times: 1
+max-jobs-per-second: 2
+printshellcmds: true
+verbose: true
+
+slurm:
+  account: "{resources.account}"
+  partition: "{resources.partition}"
+  time: "{resources.runtime}"
+  mem: "{resources.mem_mb}"
+  cpus-per-task: "{threads}"
+  extra-args: "{resources.extra}"
