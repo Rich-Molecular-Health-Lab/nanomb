@@ -7,8 +7,8 @@ ENV DEBIAN_FRONTEND=noninteractive \
     DORADO_MODELS=/models
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    wget curl git bash ca-certificates libgomp1 bzip2 && \
-    rm -rf /var/lib/apt/lists/*
+    wget curl git bash ca-certificates libgomp1 bzip2 libstdc++6 \
+ && rm -rf /var/lib/apt/lists/*
 
 # micromamba (tar.bz2)
 RUN curl -L https://micro.mamba.pm/api/micromamba/linux-64/latest \
@@ -26,13 +26,16 @@ ENV PATH=${MAMBA_ROOT_PREFIX}/envs/ont/bin:${MAMBA_ROOT_PREFIX}/bin:$PATH
 ENV DORADO_MODELS=/models
 RUN mkdir -p ${DORADO_MODELS}
 
-# Dorado install (correct symlink and clean tarball)
+# ---- Dorado install (verify & make it executable) ----
+ARG DORADO_VER=1.1.1
 WORKDIR /opt
-RUN rm -f /usr/local/bin/dorado \
- && wget -q https://cdn.oxfordnanoportal.com/software/analysis/dorado-1.1.1-linux-x64.tar.gz \
- && tar -xzf dorado-1.1.1-linux-x64.tar.gz -C /opt \
- && ln -sf /opt/dorado-1.1.1-linux-x64/bin/dorado /usr/local/bin/dorado \
- && rm -f dorado-1.1.1-linux-x64.tar.gz
+RUN set -eux; \
+    rm -f /usr/local/bin/dorado; \
+    curl -fL -o dorado.tgz "https://cdn.oxfordnanoportal.com/software/analysis/dorado-${DORADO_VER}-linux-x64.tar.gz"; \
+    tar -xzf dorado.tgz; rm dorado.tgz; \
+    install -m 0755 "/opt/dorado-${DORADO_VER}-linux-x64/dorado" /usr/local/bin/dorado; \
+    file /usr/local/bin/dorado; \
+    /usr/local/bin/dorado --version
 
 # Make both the conda env AND /usr/local/bin visible
 ENV PATH=/opt/conda/envs/ont/bin:/opt/conda/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
