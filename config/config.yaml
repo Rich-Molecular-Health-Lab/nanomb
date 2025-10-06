@@ -22,6 +22,36 @@ layout:
 pod5_in: ""          # else defaults to layout.pod5_dir
 reads_in: ""         # else defaults to layout.raw_dir
 
+# containers (overrides are optional)
+container_cpu:    "docker://aliciarich/nanomb:0.2.0-cpu"
+container_gpu:    "docker://aliciamrich/nanombgpu:0.2.0-gpu"
+container_nanoasv:"docker://aliciamrich/nanoasv:0.2.0-cpu"
+container_iqtree2:""   # if empty, CPU container is used
+
+# bind points (only used at CLI time; see section 5)
+binds:
+  - /work
+  - /lustre
+  - /mnt/nrdstor
+  - /home
+  - /models:/models
+  - /refdb:/refdb
+
+# dorado & medaka
+dorado_model_name: "dna_r10.4.1_e8.2_400bps_sup@v4.3.0"
+dorado_models_dir: "/models"         # stable in-container path (mount host here)
+dorado_extra: ""                     # any extra flags
+medaka_model: "r1041_e82_400bps_sup_v4.3.0"
+
+# nanoasv
+asv_method: "nanoasv"
+nanoasv_opts:
+  subsample_per_barcode: 2000
+  mapq: 20
+silva_fasta: "/refdb/silva.fasta"   # stable mount
+itgdb_udb:   "/refdb/itgdb.udb"
+
+
 # --- Dorado / Medaka ---
 dorado_model_name: "sup"
 dorado_models_dir: "/mnt/nrdstor/richlab/shared/dorado_models"

@@ -1,0 +1,10 @@
+.git
+__pycache__/
+*.pyc
+*.fastq
+*.bam
+*.sam
+*.fq.gz
+results/
+.work/
+.cache/

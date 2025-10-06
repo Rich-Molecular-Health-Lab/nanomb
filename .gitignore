@@ -89,3 +89,4 @@ resources:
   iqtree2_tree:           {threads: 16, mem_mb: 64000, runtime: 720, partition: batch}
   otu_table_per_sample:   {threads: 16, mem_mb: 16000, runtime: 180, partition: batch}
   asv_nanoasv:            {threads: 16, mem_mb: 32000, runtime: 360, partition: batch}
+.Rproj.user

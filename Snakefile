@@ -82,11 +82,11 @@ MIN_UNIQUE = int(config.get("min_unique_size", 1))
 
 # Containers
 CONTAINERS = {
-    "cpu16s":   _expand(config.get("container_cpu16s", f"{NRDSTOR}/containers/16s-cpu.sif")),
-    "iqtree2":  _expand(config.get("container_iqtree2", f"{NRDSTOR}/containers/iqtree2.sif")),
-    "dorado":   _expand(config.get("container_dorado",  f"{NRDSTOR}/containers/dorado.sif")),
-    "medaka":   _expand(config.get("container_medaka",  f"{NRDSTOR}/containers/medaka.sif")),
-    "nanoasv":  _expand(config.get("container_nanoasv", f"{NRDSTOR}/containers/nanoasv.sif")),
+    "cpu":    _expand(config.get("container_cpu",    "docker://aliciamrich/nanomb:0.2.0-cpu")),
+    "gpu":    _expand(config.get("container_gpu",    "docker://aliciamrich/nanombgpu:0.2.0-gpu")),
+    "nanoasv":_expand(config.get("container_nanoasv","docker://aliciamrich/nanoasv:0.2.0-cpu")),
+    # If you want a separate IQ-TREE image, set it; otherwise reuse CPU:
+    "iqtree2":_expand(config.get("container_iqtree2", "")) or _expand(config.get("container_cpu", "docker://aliciarich/nanomb:0.2.0-cpu")),
 }
 
 # When starting from POD5, canonicalize RAW to DSET/raw
@@ -257,10 +257,10 @@ rule dorado_basecall:
         extra    = R("dorado_basecall","extra","--gres=gpu:1")
     params:
         modelname = lambda wc: config.get("dorado_model_name","sup"),
-        modelsdir = lambda wc: _expand(config.get("dorado_models_dir","")),
-        extra     = lambda wc: config.get("dorado_extra",""),
-        cont      = CONTAINERS["dorado"]
+        modelsdir = lambda wc: _expand(config.get("dorado_models_dir","/models")),
+        extra     = lambda wc: config.get("dorado_extra","")
     log: os.path.join(OUT, "logs/dorado_basecall.log")
+    container: CONTAINERS["gpu"]
     shell: r"""
       set -euo pipefail
       mkdir -p "{output.basecalled}" "{output.summaries}"
@@ -270,14 +270,11 @@ rule dorado_basecall:
         run=$(basename "$d")
         bam="{output.basecalled}/${run}.bam"
         sum="{output.summaries}/${run}_basecall_summary.tsv"
-        apptainer exec --nv --bind /work,/lustre,/mnt/nrdstor,/home "{params.cont}" \
-          dorado basecaller "{params.modelname}" "$d" \
-            --device "cuda:all" --recursive --no-trim \
-            $([[ -n "{params.modelsdir}" ]] && printf -- "--models-directory %q " "{params.modelsdir}") \
-            {params.extra} \
-          > "$bam"
-        apptainer exec --nv --bind /work,/lustre,/mnt/nrdstor,/home "{params.cont}" \
-          dorado summary "$bam" > "$sum"
+        dorado basecaller "{params.modelname}" "$d" \
+          --device cuda:all --recursive --no-trim \
+          $([[ -n "{params.modelsdir}" ]] && printf -- "--models-directory %q " "{params.modelsdir}") \
+          {params.extra} > "$bam"
+        dorado summary "$bam" > "$sum"
       done
     """
 
@@ -295,9 +292,8 @@ rule dorado_demux:
         extra    = R("dorado_demux","extra","--gres=gpu:1")
     params:
         sheet_pat = lambda wc: _expand(config.get("sample_sheet_pattern","")),
-        kit       = lambda wc: config.get("barcode_kit",""),
-        cont      = CONTAINERS["dorado"]
-    log: os.path.join(OUT, "logs/dorado_demux.log")
+        kit       = lambda wc: config.get("barcode_kit","")
+    container: CONTAINERS["gpu"]
     shell: r"""
       set -euo pipefail
       mkdir -p "{output.demuxed}" "{output.summaries}"
@@ -306,25 +302,22 @@ rule dorado_demux:
         run="$(basename "$bam" .bam)"
         outdir="{output.demuxed}/${run}"
         mkdir -p "$outdir"
-        # Prefer explicit pattern if set; else fallback to SHEET_DIR/SHEET_NAME
         ssp="{params.sheet_pat}"; ssp="${ssp//\{run\}/$run}"
         if [[ -z "$ssp" ]]; then
           sname="{SHEET_NAME}"; sname="${sname//\{run\}/$run}"
           ssp="{SHEET_DIR}/$sname"
         fi
         [[ -r "$ssp" ]] || ssp=""
-        apptainer exec --nv --bind /work,/lustre,/mnt/nrdstor,/home "{params.cont}" \
-          dorado demux "$bam" \
-            --output-dir "$outdir" \
-            $([[ -n "$ssp" ]] && printf -- "--sample-sheet %q " "$ssp") \
-            $([[ -n "{params.kit}" ]] && printf -- "--kit-name %q " "{params.kit}") \
-            --emit-summary
+        dorado demux "$bam" --output-dir "$outdir" \
+          $([[ -n "$ssp" ]] && printf -- "--sample-sheet %q " "$ssp") \
+          $([[ -n "{params.kit}" ]] && printf -- "--kit-name %q " "{params.kit}") \
+          --emit-summary
         if compgen -G "$outdir"/*.txt >/dev/null; then
           mv -f "$outdir"/*.txt "{output.summaries}/${run}_barcoding_summary.txt"
         fi
       done
     """
-
+    
 # RAW gate when starting at POD5
 if USE_POD5 or (not READS_IN_CFG and Path(POD5_IN).exists()):
     ruleorder: dorado_trim > fastcat_filter
@@ -349,6 +342,7 @@ rule dorado_trim_sample:
         cont   = CONTAINERS["dorado"],
         skip_samples = tuple(config.get("trim_skip_glob", []))
     log: os.path.join(OUT, "logs", "trim_{sample}.log")
+    container: CONTAINERS["gpu"]
     shell: r"""
       set -euo pipefail
       sid="{wildcards.sample}"
@@ -393,7 +387,7 @@ rule fastcat_filter:
         exclude = lambda wc: " ".join(config.get("trim_skip_glob", [])) or "__NONE__"
     log: os.path.join(OUT, "logs/fastcat_filter.log")
     benchmark: os.path.join(OUT, "benchmarks/fastcat_filter.tsv")
-    container: CONTAINERS["cpu16s"]
+    container: CONTAINERS["cpu"]
     shell: r"""
       set -euo pipefail
       mkdir -p {output.fastq} {params.histdir}
@@ -426,7 +420,7 @@ rule nanoplot_qc:
         partition = R("nanoplot_qc", "partition", "guest"),
         account = R("nanoplot_qc", "account", "richlab")
     log: os.path.join(OUT, "logs/nanoplot_qc.log")
-    container: CONTAINERS["cpu16s"]
+    container: CONTAINERS["cpu"]
     shell: r"""
       set -euo pipefail
       mkdir -p {output}
@@ -445,7 +439,7 @@ rule isonclust3:
         partition= R("isonclust3", "partition", "batch"),
         account  = R("isonclust3", "account", "richlab")
     log: os.path.join(OUT, "logs/isonclust3.log")
-    container: CONTAINERS["cpu16s"]
+    container: CONTAINERS["cpu"]
     shell: r"""
       set -euo pipefail
       mkdir -p {output}
@@ -472,7 +466,7 @@ rule spoa_consensus:
         min_reads = int(config.get("spoa_min_reads", 3)),
         extra     = lambda wc: config.get("spoa_extra","")
     log: os.path.join(OUT, "logs/spoa_consensus.log")
-    container: CONTAINERS["cpu16s"]
+    container: CONTAINERS["cpu"]
     shell: r"""
       set -euo pipefail
       mkdir -p {output}
@@ -510,7 +504,7 @@ rule vsearch_pool_cluster:
         partition= R("vsearch_pool_cluster", "partition", "batch"),
         account  = R("vsearch_pool_cluster", "account", "richlab")
     log: os.path.join(OUT, "logs/vsearch_pool_cluster.log")
-    container: CONTAINERS["cpu16s"]
+    container: CONTAINERS["cpu"]
     shell: r"""
       set -euo pipefail
       mkdir -p "$(dirname {output.drafts})" "$(dirname {output.cent99})" "{TMP}/pooled"
@@ -540,7 +534,7 @@ rule map_all_reads:
         account  = R("map_all_reads", "account", "richlab")
     params:
         tmp = TMP, outdir = OUT
-    container: CONTAINERS["cpu16s"]
+    container: CONTAINERS["cpu"]
     shell: r"""
       set -euo pipefail
       mkdir -p {POLISH_DIR}
@@ -558,7 +552,7 @@ rule racon_round1:
         runtime  = R("racon_round1", "runtime", 120),
         partition= R("racon_round1", "partition", "batch"),
         account  = R("racon_round1", "account", "richlab")
-    container: CONTAINERS["cpu16s"]
+    container: CONTAINERS["cpu"]
     shell: r""" set -euo pipefail; racon -t {threads} {input.reads} {input.bam} {input.ref} > {output.r1} """
 
 rule map_r1:
@@ -570,7 +564,7 @@ rule map_r1:
         runtime  = R("map_r1", "runtime", 180),
         partition= R("map_r1", "partition", "batch"),
         account  = R("map_r1", "account", "richlab")
-    container: CONTAINERS["cpu16s"]
+    container: CONTAINERS["cpu"]
     shell: r"""
       set -euo pipefail
       minimap2 -t {threads} -ax map-ont {input.r1} {input.reads} | samtools sort -@ {threads} -o {output.bam}
@@ -586,7 +580,7 @@ rule racon_round2:
         runtime  = R("racon_round2", "runtime", 120),
         partition= R("racon_round2", "partition", "batch"),
         account  = R("racon_round2", "account", "richlab")
-    container: CONTAINERS["cpu16s"]
+    container: CONTAINERS["cpu"]
     shell: r""" set -euo pipefail; racon -t {threads} {input.reads} {input.bam} {input.r1} > {output.r2} """
 
 # Medaka (GPU via explicit --nv)
@@ -601,15 +595,14 @@ rule medaka_polish:
         account  = R("medaka_polish", "account", "richlab"),
         extra    = R("medaka_polish", "extra", "--gres=gpu:1")
     params:
-        medaka_model = lambda wc: config["medaka_model"],
-        cont         = CONTAINERS["medaka"]
+        medaka_model = lambda wc: config["medaka_model"]
+    container: CONTAINERS["gpu"]
     shell: r"""
       set -euo pipefail
       mkdir -p {POLISH_DIR}/medaka_refined
-      apptainer exec --nv --bind /work,/lustre,/mnt/nrdstor,/home "{params.cont}" \
-        medaka_consensus -i {input.reads} -d {input.draft} \
-                         -o {POLISH_DIR}/medaka_refined \
-                         -m {params.medaka_model} --bacteria
+      medaka_consensus -i {input.reads} -d {input.draft} \
+                       -o {POLISH_DIR}/medaka_refined \
+                       -m {params.medaka_model} --bacteria
       cp {POLISH_DIR}/medaka_refined/consensus.fasta {output.polished}
     """
 
@@ -628,7 +621,7 @@ rule chimera_taxonomy_tree:
         partition= R("chimera_taxonomy_tree", "partition", "batch"),
         account  = R("chimera_taxonomy_tree", "account", "richlab")
     log: os.path.join(OUT, "logs/chimera_taxonomy_tree.log")
-    container: CONTAINERS["cpu16s"]
+    container: CONTAINERS["cpu"]
     shell: r"""
       set -euo pipefail
       mkdir -p {OUT}/otu
@@ -665,7 +658,7 @@ rule otu_table_per_sample:
         partition= R("otu_table_per_sample", "partition", "batch"),
         account  = R("otu_table_per_sample", "account", "richlab")
     log: os.path.join(OUT, "logs/otu_table_per_sample.log")
-    container: CONTAINERS["cpu16s"]
+    container: CONTAINERS["cpu"]
     shell: r"""
       set -euo pipefail
       mkdir -p {OUT}/otu/tables
@@ -710,8 +703,8 @@ rule asv_nanoasv:
             shell(r"""
               set -euo pipefail
               mkdir -p {OUT}/asv/nanoasv
-              {NANOASV} --dir {input} --out {OUT}/asv/nanoasv \
-                        --reference {SILVA_FASTA} \
-                        --subsampling {config[nanoasv_opts][subsample_per_barcode]} \
-                        --samtools-qual {config[nanoasv_opts][mapq]}
+              nanoasv --dir {input} --out {OUT}/asv/nanoasv \
+                      --reference {SILVA_FASTA} \
+                      --subsampling {config[nanoasv_opts][subsample_per_barcode]} \
+                      --samtools-qual {config[nanoasv_opts][mapq]}
             """)

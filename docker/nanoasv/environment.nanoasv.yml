@@ -1,0 +1,25 @@
+name: nanoasv
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - python=3.11
+  - snakemake-minimal=8.11
+  - mamba
+  - vsearch
+  - chopper
+  - minimap2
+  - bwa-mem2
+  - samtools
+  - mafft
+  - fasttree
+  - seqtk
+  - seqkit
+  - pigz
+  - gzip
+  - r-base
+  - bioconductor-phyloseq
+  - r-ggplot2
+  - r-dplyr
+  - pip
