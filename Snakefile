@@ -26,6 +26,10 @@ def resolve_path(base, path_template, **vals):
     p = fmt_template(path_template, **vals)
     if not p: return ""
     return p if os.path.isabs(p) else os.path.join(base, p)
+  
+# --- helper to escape braces so Snakemake doesn't try to format {run} ---
+def esc_braces(s):
+    return s.replace("{", "{{").replace("}", "}}") if isinstance(s, str) else s
 
 # --- dataset & layout ---
 SAMPLESET = _expand(config.get("sampleset", "")).strip()
@@ -55,8 +59,14 @@ TMP  = os.path.join(DSET, "tmp")
 
 READS_IN_CFG = _expand(config.get("reads_in","")).strip()
 POD5_IN_CFG  = _expand(config.get("pod5_in","")).strip()
+# after POD5_IN_CFG / READS_IN_CFG are set
 USE_POD5 = bool(POD5_IN_CFG)
+START_FROM_POD5 = USE_POD5 or (not READS_IN_CFG and Path(POD5_IN).exists())
 
+# When starting from POD5, canonicalize RAW to DSET/raw
+if START_FROM_POD5:
+    RAW = os.path.join(DSET, "raw")
+    
 POD5_IN = POD5_IN_CFG or resolve_path(OUT_ROOT, LAYOUT["pod5_dir"], sampleset=SAMPLESET, dataset=DATASET)
 RAW     = READS_IN_CFG or resolve_path(OUT_ROOT, LAYOUT["raw_dir"], sampleset=SAMPLESET, dataset=DATASET)
 
@@ -82,16 +92,12 @@ MIN_UNIQUE = int(config.get("min_unique_size", 1))
 
 # Containers
 CONTAINERS = {
-    "cpu":    _expand(config.get("container_cpu",    "docker://aliciamrich/nanomb:0.2.0-cpu")),
-    "gpu":    _expand(config.get("container_gpu",    "docker://aliciamrich/nanombgpu:0.2.0-gpu")),
-    "nanoasv":_expand(config.get("container_nanoasv","docker://aliciamrich/nanoasv:0.2.0-cpu")),
-    # If you want a separate IQ-TREE image, set it; otherwise reuse CPU:
-    "iqtree2":_expand(config.get("container_iqtree2", "")) or _expand(config.get("container_cpu", "docker://aliciarich/nanomb:0.2.0-cpu")),
+    "cpu":     _expand(config.get("container_cpu",     "docker://aliciamrich/nanomb:0.2.0-cpu")),
+    "gpu":     _expand(config.get("container_gpu",     "docker://aliciamrich/nanombgpu:0.2.0-gpu")),
+    "nanoasv": _expand(config.get("container_nanoasv", "docker://aliciamrich/nanoasv:0.2.0-cpu")),
+    "dorado":  _expand(config.get("container_dorado",  "docker://nanoporetech/dorado:latest")),
+    "iqtree2": _expand(config.get("container_iqtree2", "")),
 }
-
-# When starting from POD5, canonicalize RAW to DSET/raw
-if USE_POD5:
-    RAW = os.path.join(DSET, "raw")
 
 # Polishing paths
 POLISH_DIR   = os.path.join(TMP, "polished")
@@ -135,8 +141,9 @@ def load_routing_for_dataset(dataset):
 
 # --------- Checkpoint the demux index (critical) ----------
 checkpoint dorado_demux_index:
-    input: demuxed = directory(DEMUX_DIR)
+    input: demuxed = DEMUX_DIR
     output: tsv = demux_index_path()
+    container: CONTAINERS["cpu"]
     message: "Indexing demuxed BAMs -> {output.tsv}"
     shell:
         "python - <<'PY'\n"
@@ -152,7 +159,6 @@ checkpoint dorado_demux_index:
         "  run = run_dir.name\n"
         "  for bam in sorted(run_dir.rglob('*.bam')):\n"
         "    base = bam.stem\n"
-        "    # If filenames look like '<run>_<sample>.bam', strip prefix; else use base\n"
         "    prefix = run + '_'\n"
         "    sample = base[len(prefix):] if base.startswith(prefix) else base\n"
         "    rows.append((sample, run, str(bam)))\n"
@@ -193,7 +199,6 @@ def bam_for_sample(wc):
                 matches.append(row)
     if not matches:
         raise WorkflowError(f"No demuxed BAM for sample={wc.sample!r} (wanted run={wanted_run}) in {idx}")
-    # If multiple remain (no run specified), prefer lexicographically latest run
     pick = sorted(matches, key=lambda r: r["run"])[-1]
     return pick["bam"]
   
@@ -215,20 +220,25 @@ rule all:
 rule preflight:
     input: db = ITGDB_UDB
     output: touch(os.path.join(TMP, "preflight.ok"))
+    container: CONTAINERS["cpu"]
     run:
-        if not input.db or not os.path.exists(input.db) or os.path.getsize(input.db)==0:
+        start_from_pod5 = START_FROM_POD5
+        if not input.db or not os.path.exists(input.db) or os.path.getsize(input.db) == 0:
             raise WorkflowError(f"SINTAX DB missing/empty: {input.db!r}")
-        if USE_POD5:
+        if config.get("asv_method", None) == "nanoasv":
+            if not SILVA_FASTA or not os.path.exists(SILVA_FASTA) or os.path.getsize(SILVA_FASTA) == 0:
+                raise WorkflowError(f"SILVA reference missing/empty: {SILVA_FASTA!r}")
+        if start_from_pod5:
             if not Path(POD5_IN).exists() or not any(Path(POD5_IN).glob("*")):
                 raise WorkflowError(f"No POD5 runs found under {POD5_IN}")
         else:
             fq = glob.glob(os.path.join(RAW, "*.fastq")) + glob.glob(os.path.join(RAW, "*.fastq.gz"))
             if not fq:
                 raise WorkflowError(f"No FASTQs found under RAW={RAW}")
-        for k,img in CONTAINERS.items():
-            if not img:
+        for k, img in CONTAINERS.items():
+            if not img and k in ("cpu", "gpu", "nanoasv", "dorado"):
                 raise WorkflowError(f"Container path/URI for '{k}' not set.")
-
+              
 rule manifest:
     output: os.path.join(OUT, "manifest.txt")
     run:
@@ -248,28 +258,28 @@ rule dorado_basecall:
     output:
         basecalled = directory(BASECALL_DIR),
         summaries  = directory(os.path.join(SUMMARY_DIR, "basecall"))
-    threads: R("dorado_basecall","threads",8)
+    threads: 8
     resources:
-        mem_mb   = R("dorado_basecall","mem_mb",32000),
-        runtime  = R("dorado_basecall","runtime",180),
-        partition= R("dorado_basecall","partition","gpu"),
-        account  = R("dorado_basecall","account","richlab"),
-        extra    = R("dorado_basecall","extra","--gres=gpu:1")
+        mem_mb=32000,
+        runtime=180,
+        partition="gpu",
+        account="richlab",
+        extra="--gres=gpu:1"
     params:
         modelname = lambda wc: config.get("dorado_model_name","sup"),
         modelsdir = lambda wc: _expand(config.get("dorado_models_dir","/models")),
         extra     = lambda wc: config.get("dorado_extra","")
     log: os.path.join(OUT, "logs/dorado_basecall.log")
-    container: CONTAINERS["gpu"]
+    container: CONTAINERS["dorado"]
     shell: r"""
       set -euo pipefail
       mkdir -p "{output.basecalled}" "{output.summaries}"
       shopt -s nullglob
       for d in "{input.pod5}"/*; do
         [[ -d "$d" ]] || continue
-        run=$(basename "$d")
-        bam="{output.basecalled}/${run}.bam"
-        sum="{output.summaries}/${run}_basecall_summary.tsv"
+        run_id="$(basename "$d")"
+        bam="{output.basecalled}/$run_id.bam"
+        sum="{output.summaries}/$run_id"_basecall_summary.tsv
         dorado basecaller "{params.modelname}" "$d" \
           --device cuda:all --recursive --no-trim \
           $([[ -n "{params.modelsdir}" ]] && printf -- "--models-directory %q " "{params.modelsdir}") \
@@ -279,80 +289,91 @@ rule dorado_basecall:
     """
 
 rule dorado_demux:
-    input: basecalled = rules.dorado_basecall.output.basecalled
+    input:
+        basecalled = rules.dorado_basecall.output.basecalled
     output:
         demuxed   = directory(DEMUX_DIR),
-        summaries = directory(os.path.join(SUMMARY_DIR, "demux"))
-    threads: R("dorado_demux","threads",8)
+        summaries = directory(os.path.join(SUMMARY_DIR, "demux")),
+    threads: 8
     resources:
-        mem_mb   = R("dorado_demux","mem_mb",32000),
-        runtime  = R("dorado_demux","runtime",120),
-        partition= R("dorado_demux","partition","gpu"),
-        account  = R("dorado_demux","account","richlab"),
-        extra    = R("dorado_demux","extra","--gres=gpu:1")
+        mem_mb=32000,
+        runtime=90,
+        partition="gpu",
+        account="richlab",
+        extra="--gres=gpu:1"
     params:
-        sheet_pat = lambda wc: _expand(config.get("sample_sheet_pattern","")),
-        kit       = lambda wc: config.get("barcode_kit","")
-    container: CONTAINERS["gpu"]
+        sheet_pat = lambda wc: esc_braces((_expand(config.get("sample_sheet_pattern","")) or "").replace("{run}", "___RUN___")),
+        sheet_name = lambda wc: esc_braces(SHEET_NAME.replace("{run}", "___RUN___")),
+        sheet_dir  = lambda wc: esc_braces(SHEET_DIR),
+        kit       = lambda wc: config.get("barcode_kit",""),
+    container: CONTAINERS["dorado"]
     shell: r"""
       set -euo pipefail
       mkdir -p "{output.demuxed}" "{output.summaries}"
       shopt -s nullglob
       for bam in "{input.basecalled}"/*.bam; do
-        run="$(basename "$bam" .bam)"
-        outdir="{output.demuxed}/${run}"
+        run_id="$(basename "$bam" .bam)"
+        outdir="{output.demuxed}/$run_id"
         mkdir -p "$outdir"
-        ssp="{params.sheet_pat}"; ssp="${ssp//\{run\}/$run}"
-        if [[ -z "$ssp" ]]; then
-          sname="{SHEET_NAME}"; sname="${sname//\{run\}/$run}"
-          ssp="{SHEET_DIR}/$sname"
+
+        ssp_pat="{params.sheet_pat}"
+        if [[ -n "$ssp_pat" ]]; then
+          ssp="$(printf '%s' "$ssp_pat" | sed "s/___RUN___/$run_id/g")"
+        else
+          sname_tmpl="{params.sheet_name}"  
+          sname="$(printf '%s' "$sname_tmpl" | sed "s/___RUN___/$run_id/g")"
+          ssp="{params.sheet_dir}/$sname"
         fi
         [[ -r "$ssp" ]] || ssp=""
+
         dorado demux "$bam" --output-dir "$outdir" \
           $([[ -n "$ssp" ]] && printf -- "--sample-sheet %q " "$ssp") \
           $([[ -n "{params.kit}" ]] && printf -- "--kit-name %q " "{params.kit}") \
           --emit-summary
+
         if compgen -G "$outdir"/*.txt >/dev/null; then
-          mv -f "$outdir"/*.txt "{output.summaries}/${run}_barcoding_summary.txt"
+          mv -f "$outdir"/*.txt "{output.summaries}/$run_id"_barcoding_summary.txt
         fi
       done
     """
     
-# RAW gate when starting at POD5
-if USE_POD5 or (not READS_IN_CFG and Path(POD5_IN).exists()):
+if START_FROM_POD5:
     ruleorder: dorado_trim > fastcat_filter
     rule _raw_from_pod5:
         input: _fastqs_from_ckpt
         output: directory(RAW)
-        shell: "true"
+        shell: "true"    
 
 rule dorado_trim_sample:
     input: bam = bam_for_sample
     output: fastq = os.path.join(RAW, "{sample}.fastq")
-    threads: R("dorado_trim","threads",8)
+    threads: 8
     resources:
-        mem_mb   = R("dorado_trim","mem_mb",32000),
-        runtime  = R("dorado_trim","runtime",240),
-        partition= R("dorado_trim","partition","batch"),
-        account  = R("dorado_trim","account","richlab")
+        mem_mb=32000,
+        runtime=90,
+        partition="gpu",
+        account="richlab",
+        extra="--gres=gpu:1"
     params:
         kit    = lambda wc: config.get("barcode_kit",""),
         emitfq = lambda wc: str(config.get("trim_emit_fastq", True)).lower(),
         minlen = lambda wc: int(config.get("trim_minlen", 0)),
-        cont   = CONTAINERS["dorado"],
-        skip_samples = tuple(config.get("trim_skip_glob", []))
+        skip_samples = lambda wc: " ".join(config.get("trim_skip_glob", [])) or "__NONE__"
     log: os.path.join(OUT, "logs", "trim_{sample}.log")
-    container: CONTAINERS["gpu"]
+    container: CONTAINERS["dorado"]
     shell: r"""
       set -euo pipefail
       sid="{wildcards.sample}"
-      for pat in {params.skip_samples}; do case "$sid" in $pat) echo "skip $sid"; exit 0;; esac; done
+      for pat in {params.skip_samples}; do
+        [[ "$pat" == "__NONE__" ]] && break
+        case "$sid" in $pat) echo "skip $sid"; exit 0;;
+        esac
+      done
       tmp="$(mktemp)"
-      apptainer exec --nv --bind /work,/lustre,/mnt/nrdstor,/home "{params.cont}" \
-        dorado trim \
-          $([[ -n "{params.kit}" ]] && printf -- "--kit-name %q " "{params.kit}") \
-          $([[ "{params.emitfq}" == "true" ]] && printf -- "--emit-fastq ") \
-          "{input.bam}" > "$tmp"
+      dorado trim \
+        $([[ -n "{params.kit}" ]] && printf -- "--kit-name %q " "{params.kit}") \
+        $([[ "{params.emitfq}" == "true" ]] && printf -- "--emit-fastq ") \
+        "{input.bam}" > "$tmp"
       if [[ {params.minlen} -gt 0 ]]; then
         awk 'BEGIN{OFS="\n"} NR%4==1{h=$0} NR%4==2{s=$0} NR%4==3{p=$0} NR%4==0{q=$0; if(length(s)>={params.minlen}) print h,s,p,q}' "$tmp" > "{output.fastq}"
         rm -f "$tmp"
@@ -470,22 +491,18 @@ rule spoa_consensus:
     shell: r"""
       set -euo pipefail
       mkdir -p {output}
-      # For each cluster FASTQ, cap reads to avoid pathological runtimes.
       find {input} -type f -path "*/clustering/fastq_files/*.fastq" | while read -r fq; do
         sample=$(basename "$(dirname "$(dirname "$fq")")")
         cid=$(basename "$fq" .fastq)
         out="{output}/${sample}_${cid}.fasta"
-        # count reads; skip tiny clusters
         n=$(awk 'END{print NR/4}' "$fq")
         if (( n < {params.min_reads} )); then continue; fi
         tmpf=$(mktemp)
         if (( n > {params.max_reads} )); then
-          # deterministic subsample: take first max_reads (fast, no extra deps)
           awk -v m={params.max_reads} 'NR%4==1{c++} c<=m{print}' "$fq" > "$tmpf"
         else
           cp "$fq" "$tmpf"
         fi
-        # default scoring is fine for 16S; add {params.extra} to tweak if needed
         spoa {params.extra} "$tmpf" > "$out"
         rm -f "$tmpf"
       done
@@ -518,7 +535,6 @@ rule vsearch_pool_cluster:
               --centroids {output.cent97} --threads {threads}
     """
 
-# Gather reads and polishing
 rule map_all_reads:
     input:
         reads_dir = os.path.join(TMP, "filtered"),
@@ -583,7 +599,6 @@ rule racon_round2:
     container: CONTAINERS["cpu"]
     shell: r""" set -euo pipefail; racon -t {threads} {input.reads} {input.bam} {input.r1} > {output.r2} """
 
-# Medaka (GPU via explicit --nv)
 rule medaka_polish:
     input: reads = ALL_READS_FQ, draft = R2_FASTA
     output: polished = POLISHED
@@ -606,7 +621,6 @@ rule medaka_polish:
       cp {POLISH_DIR}/medaka_refined/consensus.fasta {output.polished}
     """
 
-# Taxonomy/tree
 rule chimera_taxonomy_tree:
     input: fasta = POLISHED, db = ITGDB_UDB
     output:
@@ -640,14 +654,13 @@ rule iqtree2_tree:
         partition= R("iqtree2_tree", "partition", "batch"),
         account  = R("iqtree2_tree", "account", "richlab")
     log: os.path.join(OUT, "logs/iqtree2_tree.log")
-    container: CONTAINERS["iqtree2"]
+    container: CONTAINERS["iqtree2"] or CONTAINERS["cpu"]
     shell: r"""
       set -euo pipefail
       iqtree2 -s {input.msa} -nt AUTO -m TEST -bb 1000 -alrt 1000 -pre {OUT}/otu/otu_tree
       test -s {output.tree}
     """
 
-# OTU table & merge
 rule otu_table_per_sample:
     input: refs = rules.chimera_taxonomy_tree.output.nonchim, reads = rules.fastcat_filter.output.fastq
     output: merged = os.path.join(OUT, "otu/otu_table_merged.tsv")
@@ -684,7 +697,6 @@ rule otu_table_per_sample:
       PY
     """
 
-# ASV branch (NanoASV)
 rule asv_nanoasv:
     input: rules.fastcat_filter.output.fastq
     output: os.path.join(OUT, "asv/nanoasv/phyloseq.RData")

@@ -1,6 +1,0 @@
-channels: [bioconda, conda-forge, defaults]
-dependencies:
-  - medaka
-  - tensorflow=2.12.*=cpu_*
-  - h5py=3.10.*
-  - python=3.10

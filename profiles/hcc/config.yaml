@@ -1,27 +1,31 @@
 executor: slurm
+mode: default
 jobs: 16
 
+use-apptainer: true
+apptainer-prefix: "/mnt/nrdstor/richlab/aliciarich/.apptainer"
+apptainer-args: "--nv --bind /work,/lustre,/mnt/nrdstor,/home,/mnt/nrdstor/richlab/shared/dorado_models:/models,/mnt/nrdstor/richlab/shared/databases:/refdb"
+
+slurm-account: richlab
+slurm-logdir: "/mnt/nrdstor/richlab/shared/nanomb/.snakemake/slurm_logs"
+
+# CPU defaults (used by rules that don't request GPUs)
 default-resources:
   - mem_mb=8000
   - runtime=60
-  - partition=guest
+  - partition=batch
   - account=richlab
   - extra=""
 
-use-conda: false
-use-apptainer: true
-apptainer-args: "--bind /work,/lustre,/mnt/nrdstor,/home"
+envvars:
+  - XDG_CACHE_HOME
+  - TMPDIR
+  - APPTAINER_CACHEDIR
+  - APPTAINER_TMPDIR
+  - SINGULARITY_CACHEDIR
+  - SINGULARITY_TMPDIR
 
 latency-wait: 60
 restart-times: 1
-max-jobs-per-second: 2
 printshellcmds: true
 verbose: true
-
-slurm:
-  account: "{resources.account}"
-  partition: "{resources.partition}"
-  time: "{resources.runtime}"
-  mem: "{resources.mem_mb}"
-  cpus-per-task: "{threads}"
-  extra-args: "{resources.extra}"
