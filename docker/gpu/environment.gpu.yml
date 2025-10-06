@@ -4,22 +4,18 @@ channels:
   - nvidia
   - conda-forge
   - bioconda
-  - defaults
 dependencies:
   - python=3.11
   - snakemake-minimal=8.11
   - mamba
-
-  # ---- CUDA-enabled PyTorch stack (matches CUDA 12.1) ----
-  - pytorch=2.3.*         # from pytorch channel
-  - torchvision=0.18.*    # from pytorch channel
-  - torchaudio=2.3.*      # from pytorch channel
-  - pytorch-cuda=12.1     # from nvidia channel; pulls cudnn/cublas, etc.
-
-  # ---- your pipeline tools ----
-  - medaka=2.1.*          # GPU build will bind to CUDA-enabled torch
+  # GPU PyTorch stack (12.1 toolchain)
+  - pytorch=2.3.*
+  - torchvision=0.18.*
+  - torchaudio=2.3.*
+  - pytorch-cuda=12.1
+  # Bio tools
+  - medaka=2.1.*
   - minimap2
   - racon
   - spoa
-
   - pip
