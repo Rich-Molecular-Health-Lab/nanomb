@@ -1,4 +1,4 @@
-# nanoMB: Oxford Nanopore 16S Pipeline (Container-First)
+# ![](graphics/logo.png){width="70px"} nanoMB: Oxford Nanopore 16S Pipeline (Container-First)
 
 This workflow processes full-length Oxford Nanopore 16S amplicon reads from raw POD5 files
 through demultiplexing, consensus polishing, and taxonomic assignment.
