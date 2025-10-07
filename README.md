@@ -40,13 +40,15 @@ Data and outputs are resolved from environment variables defined by
 
 Pipeline outputs land under:
 
+```
 $WORK/datasets/16s///
 │
 ├── raw//                # demuxed + trimmed per-run reads
-├── tmp/                      # intermediate results
-├── qc/                       # QC reports
-├── otu/                      # clustered OTUs, taxonomy, tree
-└── asv/                      # ASV branch (placeholder if disabled)
+├── tmp/                 # intermediate results
+├── qc/                  # QC reports
+├── otu/                 # clustered OTUs, taxonomy, tree
+└── asv/                 # ASV branch (placeholder if disabled)
+```
 
 ---
 
