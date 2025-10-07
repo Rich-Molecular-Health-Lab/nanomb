@@ -2,25 +2,45 @@
 project: culi_16S
 sampleset: loris
 dataset:   culi
+runs:
+  - hdz1
+  - hdz2
+  - hdz3
+  - hdz4
+  - hdz5
+  - hdz6
+  - hdz7
+  - hdz8
+  - hdz9
+  - hdz10
+  - hdz11
+  - hdz12
+  - hdz13
+  - hdz14
+  - hdz15
+  - hdz16
+  - hdz17
+  - hdz18
+  - hdz19
 
 # --- Root ---
-out_root: "$OUT_ROOT"   
+out_root: "$WORK/datasets/16s"
+
+# --- Start point ---
+run_glob: "*"      # limit to a glob, e.g. "2025-10-*"
+run_regex: ""      # or a regex, e.g. "^2025-10-(01|03)_"
 
 # --- Layout ---
 layout:
   dataset_dir:        "{sampleset}/{dataset}"
   raw_dir:            "{sampleset}/{dataset}/raw"
   pod5_dir:           "{sampleset}/pod5"
-  basecall_dir:       "{sampleset}/basecalled"
-  demux_dir:          "{sampleset}/demuxed"
-  summary_dir:        "{sampleset}/dorado_summaries"
+  basecall_dir:       "{sampleset}/basecalled/{run}"
+  demux_dir:          "{sampleset}/demuxed/{run}"
+  summary_dir:        "{sampleset}/dorado_summaries/{run}"
   sample_sheet_dir:   "{sampleset}/samples"
-  sample_sheet_name:  "___RUN____sample_sheet.csv"   
+  sample_sheet_name:  "{run}_sample_sheet.csv"
   sample_routing:     "{sampleset}/samples/sample_to_dataset.tsv"
-
-# --- Start point ---
-pod5_in: ""        # leave empty to use layout.pod5_dir, or set absolute path here
-reads_in: ""       # leave empty if starting from pod5
 
 # --- Containers ---
 container_cpu:     "/mnt/nrdstor/richlab/shared/containers/nanomb.sif"
@@ -34,20 +54,11 @@ itgdb_udb:   "/mnt/nrdstor/richlab/shared/databases/itgdb_16s/taxa_itgdb.udb"
 silva_fasta: "/mnt/nrdstor/richlab/shared/databases/silva138/SILVA_138.2_SSURef_NR99_tax_silva.fasta"
 
 # --- NanoASV ---
-asv_method: nanoasv
+asv_method: none
 nanoasv_bin: nanoasv
 nanoasv_opts:
   subsample_per_barcode: 2000
   mapq: 20
-
-# (Optional doc only; actual binds come from profile apptainer-args)
-binds:
-  - /work
-  - /lustre
-  - /mnt/nrdstor
-  - /home
-  - /models:/models
-  - /refdb:/refdb
 
 # --- Dorado & Medaka ---
 dorado_model_name: "dna_r10.4.1_e8.2_400bps_sup@v5.2.0"
@@ -82,7 +93,7 @@ spoa_extra: ""
 resources:
   dorado_basecall: {threads: 8,  mem_mb: 32000, runtime: 180, partition: gpu,   account: richlab, extra: "--gres=gpu:1"}
   dorado_demux:    {threads: 8,  mem_mb: 32000, runtime: 120, partition: gpu,   account: richlab, extra: "--gres=gpu:1"}
-  dorado_trim:     {threads: 8,  mem_mb: 32000, runtime: 240, partition: batch, account: richlab, extra: "--gres=gpu:1"}
+  dorado_trim:     {threads: 8,  mem_mb: 32000, runtime: 240, partition: gpu,   account: richlab, extra: "--gres=gpu:1"}
 
   fastcat_filter:        {threads: 4,  mem_mb: 8000,  runtime: 60,  partition: batch, account: richlab}
   nanoplot_qc:           {threads: 2,  mem_mb: 4000,  runtime: 30,  partition: batch, account: richlab}

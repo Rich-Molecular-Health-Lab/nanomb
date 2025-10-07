@@ -9,19 +9,19 @@
 
 # activate environment
 module load anaconda
-conda activate $NRDSTOR/snakemake
+conda activate "$NRDSTOR/snakemake"
 
-# safety: run from your repo root
-cd /mnt/nrdstor/richlab/shared/nanomb
+# --- Run from repo root ---
+cd /mnt/nrdstor/richlab/shared/nanomb || {
+  echo "ERROR: repo path not found"; exit 1;
+}
 
-# export cache/temp dirs to NRDSTOR
-export XDG_CACHE_HOME=/mnt/nrdstor/richlab/aliciarich/.cache
-export TMPDIR=/mnt/nrdstor/richlab/aliciarich/tmp
-export APPTAINER_CACHEDIR=/mnt/nrdstor/richlab/aliciarich/.apptainer/cache
-export APPTAINER_TMPDIR=/mnt/nrdstor/richlab/aliciarich/.apptainer/tmp
+# --- Prepare environment variables for the workflow ---
+source profiles/hcc/env_setup.sh
 
-# main call
-snakemake --profile profiles/hcc \
-  --executor slurm --mode default --jobs 16 \
-  --config pod5_in=/work/richlab/$USER/datasets/16s/loris/pod5 \
-  --rerun-incomplete --printshellcmds
+# --- Launch the workflow ---
+snakemake \
+  --profile profiles/hcc \
+  --rerun-incomplete \
+  --keep-going \
+  --printshellcmds

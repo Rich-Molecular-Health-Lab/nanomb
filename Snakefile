@@ -14,6 +14,15 @@ WORK    = os.environ.get("WORK",    os.path.join(PROJ, "local_work"))
 NRDSTOR = os.environ.get("NRDSTOR", os.environ.get("NRDSTOR_LOCAL", ""))
 
 def _expand(v):  return os.path.expandvars(v) if isinstance(v, str) else v
+
+def _require_abs_resolved(p, name):
+    if not p or "$" in p:
+        raise WorkflowError(f"{name} is unset or contains an unresolved '$': got {p!r}. Did you export {name}?")
+    p = os.path.expanduser(p)
+    if not os.path.isabs(p):
+        p = os.path.join(PROJ, p)
+    return p
+  
 def R(rule, key, default): return config.get("resources", {}).get(rule, {}).get(key, default)
 
 def fmt_template(s, **vals):
@@ -27,7 +36,7 @@ def resolve_path(base, path_template, **vals):
     if not p: return ""
     return p if os.path.isabs(p) else os.path.join(base, p)
   
-# --- helper to escape braces so Snakemake doesn't try to format {run} ---
+# --- helper to escape braces so Snakemake doesn't try to format run ---
 def esc_braces(s):
     return s.replace("{", "{{").replace("}", "}}") if isinstance(s, str) else s
 
@@ -37,67 +46,90 @@ DATASET   = _expand(config.get("dataset", "")).strip()
 if not DATASET:
     raise WorkflowError("config.dataset is required")
 
+# --- require out_root to be resolved and absolute ---
 OUT_ROOT  = _expand(config.get("out_root", None))
-if not OUT_ROOT:
-    raise WorkflowError("Config is missing 'out_root'.")
+if not OUT_ROOT or "$" in OUT_ROOT:
+    raise WorkflowError(f"Config 'out_root' missing or unresolved: {OUT_ROOT!r}")
+OUT_ROOT = os.path.expanduser(OUT_ROOT)
+if not os.path.isabs(OUT_ROOT):
+    raise WorkflowError(f"Config 'out_root' must be absolute: {OUT_ROOT!r}")
 
 LAYOUT = { **{
-    "dataset_dir":   "{sampleset}/{dataset}",
-    "raw_dir":       "{sampleset}/{dataset}/raw",
-    "pod5_dir":      "{sampleset}/pod5",
-    "basecall_dir":  "{sampleset}/basecalled",
-    "demux_dir":     "{sampleset}/demuxed",
-    "summary_dir":   "{sampleset}/dorado_summaries",
+    "dataset_dir":     "{sampleset}/{dataset}",
+    "raw_dir":         "{sampleset}/{dataset}/raw",          # dataset workspace
+    "pod5_dir":        "{sampleset}/pod5",                   # run parents
+    "basecall_dir":    "{sampleset}/basecalled/{run}",       # per-run
+    "demux_dir":       "{sampleset}/demuxed/{run}",          # per-run
+    "summary_dir":     "{sampleset}/dorado_summaries/{run}", # per-run
     "sample_sheet_dir": "{sampleset}/samples",
     "sample_sheet_name": "{run}_sample_sheet.csv",
-    "sample_routing": "{sampleset}/samples/sample_to_dataset.tsv",
+    "sample_routing":  "{sampleset}/samples/sample_to_dataset.tsv",
 }, **config.get("layout", {}) }
 
+# Dataset workspace (everything downstream lands here)
 DSET = resolve_path(OUT_ROOT, LAYOUT["dataset_dir"], sampleset=SAMPLESET, dataset=DATASET)
 OUT  = DSET
 TMP  = os.path.join(DSET, "tmp")
 
-READS_IN_CFG = _expand(config.get("reads_in","")).strip()
-POD5_IN_CFG  = _expand(config.get("pod5_in","")).strip()
-# after POD5_IN_CFG / READS_IN_CFG are set
-USE_POD5 = bool(POD5_IN_CFG)
-START_FROM_POD5 = USE_POD5 or (not READS_IN_CFG and Path(POD5_IN).exists())
+# Inputs / upstream per-run outputs
+def pod5_dir(run): return resolve_path(OUT_ROOT, os.path.join(LAYOUT["pod5_dir"], run), sampleset=SAMPLESET, dataset=DATASET, run=run)
+def basecall_dir(run): return resolve_path(OUT_ROOT, LAYOUT["basecall_dir"], sampleset=SAMPLESET, dataset=DATASET, run=run)
+def demux_dir(run):    return resolve_path(OUT_ROOT, LAYOUT["demux_dir"],    sampleset=SAMPLESET, dataset=DATASET, run=run)
+def summary_dir(run):  return resolve_path(OUT_ROOT, LAYOUT["summary_dir"],  sampleset=SAMPLESET, dataset=DATASET, run=run)
 
-# When starting from POD5, canonicalize RAW to DSET/raw
-if START_FROM_POD5:
-    RAW = os.path.join(DSET, "raw")
-    
-POD5_IN = POD5_IN_CFG or resolve_path(OUT_ROOT, LAYOUT["pod5_dir"], sampleset=SAMPLESET, dataset=DATASET)
-RAW     = READS_IN_CFG or resolve_path(OUT_ROOT, LAYOUT["raw_dir"], sampleset=SAMPLESET, dataset=DATASET)
+# Where demux_trim puts the dataset subset
+RAW_BASE = resolve_path(OUT_ROOT, LAYOUT["raw_dir"], sampleset=SAMPLESET, dataset=DATASET)
+def raw_dir_for_run(run): return os.path.join(RAW_BASE, run)
 
-BASECALL_DIR = resolve_path(OUT_ROOT, LAYOUT["basecall_dir"], sampleset=SAMPLESET, dataset=DATASET)
-DEMUX_DIR    = resolve_path(OUT_ROOT, LAYOUT["demux_dir"],    sampleset=SAMPLESET, dataset=DATASET)
-SUMMARY_DIR  = resolve_path(OUT_ROOT, LAYOUT["summary_dir"],  sampleset=SAMPLESET, dataset=DATASET)
-
+# Samples / sheets
 SHEET_DIR  = resolve_path(OUT_ROOT, LAYOUT["sample_sheet_dir"],  sampleset=SAMPLESET, dataset=DATASET)
 SHEET_NAME = LAYOUT["sample_sheet_name"]
 ROUTING_TSV = resolve_path(OUT_ROOT, LAYOUT["sample_routing"], sampleset=SAMPLESET, dataset=DATASET)
 
-# References
+# Ensure base dirs (dataset-scoped)
+for p in (OUT, TMP, os.path.join(OUT,"otu"), os.path.join(OUT,"asv"), os.path.join(OUT,"logs"), os.path.join(OUT,"benchmarks")):
+    Path(p).mkdir(parents=True, exist_ok=True)
+
+# Containers
+CONTAINERS = {
+    "cpu":     _expand(config.get("container_cpu",     "/mnt/nrdstor/richlab/shared/containers/nanomb.sif")),
+    "gpu":     _expand(config.get("container_gpu",     "/mnt/nrdstor/richlab/shared/containers/nanombgpu.sif")),
+    "nanoasv": _expand(config.get("container_nanoasv", "/mnt/nrdstor/richlab/shared/containers/nanoasv.sif")),
+    "dorado":  _expand(config.get("container_dorado",  "/mnt/nrdstor/richlab/shared/containers/dorado.sif")),
+    "iqtree2": _expand(config.get("container_iqtree2", "")),
+}
+
+# ---- wildcardable string templates (no callables) ----
+BASECALL_DIR_T   = resolve_path(OUT_ROOT, LAYOUT["basecall_dir"],
+                                sampleset=SAMPLESET, dataset=DATASET, run="{run}")
+DEMUX_DIR_T      = resolve_path(OUT_ROOT, LAYOUT["demux_dir"],
+                                sampleset=SAMPLESET, dataset=DATASET, run="{run}")
+SUMMARY_DIR_T    = resolve_path(OUT_ROOT, LAYOUT["summary_dir"],
+                                sampleset=SAMPLESET, dataset=DATASET, run="{run}")
+RAW_DIR_T        = os.path.join(RAW_BASE, "{run}")
+DEMUX_INDEX_T    = os.path.join(TMP, "demux_index_{run}.tsv")
+
+LOG_BASECALL_T   = os.path.join(OUT, "logs", "dorado_basecall_{run}.log")
+LOG_TRIM_T       = os.path.join(OUT, "logs", "trim_{run}_{sample}.log")
+
+READS_IN_CFG = _expand(config.get("reads_in","")).strip()
+POD5_IN_CFG  = _expand(config.get("pod5_in","")).strip()
+
+POD5_IN  = POD5_IN_CFG or resolve_path(OUT_ROOT, LAYOUT["pod5_dir"],  sampleset=SAMPLESET, dataset=DATASET)
+READS_IN = READS_IN_CFG or resolve_path(OUT_ROOT, LAYOUT["raw_dir"],  sampleset=SAMPLESET, dataset=DATASET)
+
+for p in (OUT, TMP, os.path.join(OUT,"otu"), os.path.join(OUT,"asv"), os.path.join(OUT,"logs"), os.path.join(OUT,"benchmarks")):
+    Path(p).mkdir(parents=True, exist_ok=True)
+    
 ITGDB_UDB   = _expand(config.get("itgdb_udb", ""))
 SILVA_FASTA = _expand(config.get("silva_fasta", ""))
 
-# Tunables
 MAP_ID  = float(config.get("map_id", 0.98))
 STRAND  = config.get("strand", "both")
 THREADS = int(config.get("threads", 16))
 NANOASV = config.get("nanoasv_bin", "nanoasv")
 SINTAX_CUTOFF = float(config.get("sintax_cutoff", 0.8))
 MIN_UNIQUE = int(config.get("min_unique_size", 1))
-
-# Containers
-CONTAINERS = {
-    "cpu":     _expand(config.get("container_cpu",     "docker://aliciamrich/nanomb:0.2.0-cpu")),
-    "gpu":     _expand(config.get("container_gpu",     "docker://aliciamrich/nanombgpu:0.2.0-gpu")),
-    "nanoasv": _expand(config.get("container_nanoasv", "docker://aliciamrich/nanoasv:0.2.0-cpu")),
-    "dorado":  _expand(config.get("container_dorado",  "docker://nanoporetech/dorado:latest")),
-    "iqtree2": _expand(config.get("container_iqtree2", "")),
-}
 
 # Polishing paths
 POLISH_DIR   = os.path.join(TMP, "polished")
@@ -108,9 +140,28 @@ MAP_BAM_R1   = os.path.join(POLISH_DIR, "map_r1.bam")
 R2_FASTA     = os.path.join(POLISH_DIR, "r2.fasta")
 POLISHED     = os.path.join(POLISH_DIR, "polished_otus.fasta")
 
-# Ensure base dirs
-for p in (OUT, TMP, os.path.join(OUT,"otu"), os.path.join(OUT,"asv"), os.path.join(OUT,"logs"), os.path.join(OUT,"benchmarks")):
-    Path(p).mkdir(parents=True, exist_ok=True)
+# ---- runs: discover or use config ----
+def discover_runs():
+    base = resolve_path(OUT_ROOT, LAYOUT["pod5_dir"], sampleset=SAMPLESET, dataset=DATASET)
+    gpat = (config.get("run_glob") or "*").strip()
+    rre  = (config.get("run_regex") or "").strip()
+
+    cands = []
+    if Path(base).exists():
+        cands = [p.name for p in Path(base).iterdir() if p.is_dir()]
+    if gpat and gpat != "*":
+        import fnmatch
+        cands = [r for r in cands if fnmatch.fnmatch(r, gpat)]
+    if rre:
+        import re
+        rx = re.compile(rre)
+        cands = [r for r in cands if rx.search(r)]
+    return sorted(cands)
+
+RUNS = list(map(str, config.get("runs", []) or discover_runs()))
+if not RUNS:
+    raise WorkflowError("No runs found. Set config.runs or ensure pod5 folders exist under layout.pod5_dir.")
+
 
 def asv_target():
     m = config.get("asv_method", None)
@@ -139,72 +190,18 @@ def load_routing_for_dataset(dataset):
                     picks[s] = r
     return picks
 
-# --------- Checkpoint the demux index (critical) ----------
-checkpoint dorado_demux_index:
-    input: demuxed = DEMUX_DIR
-    output: tsv = demux_index_path()
-    container: CONTAINERS["cpu"]
-    message: "Indexing demuxed BAMs -> {output.tsv}"
-    shell:
-        "python - <<'PY'\n"
-        "from pathlib import Path\n"
-        "import csv, os\n"
-        f"PDEMUX=r'''{DEMUX_DIR}'''\n"
-        f"OUT=r'''{demux_index_path()}'''\n"
-        "Path(os.path.dirname(OUT)).mkdir(parents=True, exist_ok=True)\n"
-        "rows=[]\n"
-        "for run_dir in sorted(Path(PDEMUX).glob('*')):\n"
-        "  if not run_dir.is_dir():\n"
-        "    continue\n"
-        "  run = run_dir.name\n"
-        "  for bam in sorted(run_dir.rglob('*.bam')):\n"
-        "    base = bam.stem\n"
-        "    prefix = run + '_'\n"
-        "    sample = base[len(prefix):] if base.startswith(prefix) else base\n"
-        "    rows.append((sample, run, str(bam)))\n"
-        "with open(OUT,'w',newline='') as fh:\n"
-        "  w=csv.writer(fh, delimiter='\\t')\n"
-        "  w.writerow(['sample','run','bam'])\n"
-        "  w.writerows(rows)\n"
-        "PY"
-        
-def _samples_from_ckpt(wc):
-    idx = checkpoints.dorado_demux_index.get(**wc).output.tsv
-    routing = load_routing_for_dataset(DATASET)
-    samples = set()
-    import csv as _csv
-    with open(idx) as fh:
-        rdr = _csv.DictReader(fh, delimiter="\t")
-        for row in rdr:
-            s, run = row["sample"], row["run"]
-            wanted_run = routing.get(s, None)
-            if s in routing and (wanted_run is None or wanted_run == run):
-                samples.add(s)
-    return sorted(samples)
+# ---- Build final targets safely (no functions leak into input) ----
+_demux_done = [os.path.join(raw_dir_for_run(r), "demux_trim.done") for r in RUNS]
 
+_asv = asv_target()                 
+if not _asv:
+    _asv = []
+elif isinstance(_asv, str):
+    _asv = [_asv]                   
 
-def _fastqs_from_ckpt(wc):
-    return expand(os.path.join(RAW, "{sample}.fastq"), sample=_samples_from_ckpt(wc))
-
-def bam_for_sample(wc):
-    idx = checkpoints.dorado_demux_index.get(**wc).output.tsv
-    routing = load_routing_for_dataset(DATASET)
-    wanted_run = routing.get(wc.sample, None)
-    matches = []
-    import csv as _csv
-    with open(idx) as fh:
-        rdr = _csv.DictReader(fh, delimiter="\t")
-        for row in rdr:
-            if row["sample"] == wc.sample and (wanted_run is None or row["run"] == wanted_run):
-                matches.append(row)
-    if not matches:
-        raise WorkflowError(f"No demuxed BAM for sample={wc.sample!r} (wanted run={wanted_run}) in {idx}")
-    pick = sorted(matches, key=lambda r: r["run"])[-1]
-    return pick["bam"]
-  
-# ---------------- targets ----------------
-rule all:
-    input:
+_final_targets = (
+    _demux_done
+    + [
         os.path.join(TMP, "preflight.ok"),
         os.path.join(OUT, "manifest.txt"),
         os.path.join(OUT, "benchmarks/fastcat_filter.tsv"),
@@ -214,31 +211,36 @@ rule all:
         os.path.join(OUT, "otu/otu_references_aligned.fasta"),
         os.path.join(OUT, "otu/otu_tree.treefile"),
         os.path.join(OUT, "otu/otus_taxonomy.sintax"),
-        expand(os.path.join(OUT, "otu/otus_centroids{id}.fasta"), id=["_99","_97"]),
-        asv_target()
+        os.path.join(OUT, "otu/otus_centroids_99.fasta"),
+        os.path.join(OUT, "otu/otus_centroids_97.fasta"),
+      ]
+    + _asv
+)
+
+rule all:
+    input: _final_targets
 
 rule preflight:
     input: db = ITGDB_UDB
     output: touch(os.path.join(TMP, "preflight.ok"))
     container: CONTAINERS["cpu"]
     run:
-        start_from_pod5 = START_FROM_POD5
         if not input.db or not os.path.exists(input.db) or os.path.getsize(input.db) == 0:
             raise WorkflowError(f"SINTAX DB missing/empty: {input.db!r}")
         if config.get("asv_method", None) == "nanoasv":
             if not SILVA_FASTA or not os.path.exists(SILVA_FASTA) or os.path.getsize(SILVA_FASTA) == 0:
                 raise WorkflowError(f"SILVA reference missing/empty: {SILVA_FASTA!r}")
-        if start_from_pod5:
-            if not Path(POD5_IN).exists() or not any(Path(POD5_IN).glob("*")):
-                raise WorkflowError(f"No POD5 runs found under {POD5_IN}")
-        else:
-            fq = glob.glob(os.path.join(RAW, "*.fastq")) + glob.glob(os.path.join(RAW, "*.fastq.gz"))
-            if not fq:
-                raise WorkflowError(f"No FASTQs found under RAW={RAW}")
+
+        # Require either POD5 run dirs or any RAW FASTQs across runs
+        pod5_root = resolve_path(OUT_ROOT, LAYOUT["pod5_dir"], sampleset=SAMPLESET, dataset=DATASET)
+        have_pod5 = Path(pod5_root).exists() and any(p.is_dir() for p in Path(pod5_root).iterdir())
+        have_raw = any(Path(raw_dir_for_run(r)).glob("*.fastq*") for r in RUNS) if Path(RAW_BASE).exists() else False
+        if not (have_pod5 or have_raw):
+            raise WorkflowError(f"No inputs found. Looked for POD5 under {pod5_root} and FASTQs under {RAW_BASE}")
+
         for k, img in CONTAINERS.items():
             if not img and k in ("cpu", "gpu", "nanoasv", "dorado"):
-                raise WorkflowError(f"Container path/URI for '{k}' not set.")
-              
+                raise WorkflowError(f"Container path/URI for '{k}' not set.")              
 rule manifest:
     output: os.path.join(OUT, "manifest.txt")
     run:
@@ -253,116 +255,137 @@ rule manifest:
             yaml.safe_dump(config, fh, sort_keys=False)
 
 # ---------------- Dorado (GPU via explicit --nv) ----------------
+
 rule dorado_basecall:
-    input: pod5 = POD5_IN
+    input:
+        pod5 = lambda wc: pod5_dir(wc.run)    
     output:
-        basecalled = directory(BASECALL_DIR),
-        summaries  = directory(os.path.join(SUMMARY_DIR, "basecall"))
+        basecalled = directory(BASECALL_DIR_T),
+        summaries  = directory(os.path.join(SUMMARY_DIR_T, "basecall"))
     threads: 8
     resources:
-        mem_mb=32000,
-        runtime=180,
-        partition="gpu",
-        account="richlab",
-        extra="--gres=gpu:1"
+        mem_mb=32000, runtime=180, partition="gpu", account="richlab", extra="--gres=gpu:1"
     params:
         modelname = lambda wc: config.get("dorado_model_name","sup"),
         modelsdir = lambda wc: _expand(config.get("dorado_models_dir","/models")),
         extra     = lambda wc: config.get("dorado_extra","")
-    log: os.path.join(OUT, "logs/dorado_basecall.log")
+    log: LOG_BASECALL_T                        
     container: CONTAINERS["dorado"]
     shell: r"""
       set -euo pipefail
       mkdir -p "{output.basecalled}" "{output.summaries}"
-      shopt -s nullglob
-      for d in "{input.pod5}"/*; do
-        [[ -d "$d" ]] || continue
-        run_id="$(basename "$d")"
-        bam="{output.basecalled}/$run_id.bam"
-        sum="{output.summaries}/$run_id"_basecall_summary.tsv
-        dorado basecaller "{params.modelname}" "$d" \
-          --device cuda:all --recursive --no-trim \
-          $([[ -n "{params.modelsdir}" ]] && printf -- "--models-directory %q " "{params.modelsdir}") \
-          {params.extra} > "$bam"
-        dorado summary "$bam" > "$sum"
-      done
+      bam="{output.basecalled}/{wildcards.run}.bam"
+      sum="{output.summaries}/{wildcards.run}_basecall_summary.tsv"
+      dorado basecaller "{params.modelname}" "{input.pod5}" \
+        --device cuda:all --recursive --no-trim \
+        $([[ -n "{params.modelsdir}" ]] && printf -- "--models-directory %q " "{params.modelsdir}") \
+        {params.extra} > "$bam"
+      dorado summary "$bam" > "$sum"
     """
 
 rule dorado_demux:
     input:
-        basecalled = rules.dorado_basecall.output.basecalled
+        basecalled = BASECALL_DIR_T            
     output:
-        demuxed   = directory(DEMUX_DIR),
-        summaries = directory(os.path.join(SUMMARY_DIR, "demux")),
+        demuxed   = directory(DEMUX_DIR_T),
+        summaries = directory(os.path.join(SUMMARY_DIR_T, "demux")),
     threads: 8
     resources:
-        mem_mb=32000,
-        runtime=90,
-        partition="gpu",
-        account="richlab",
-        extra="--gres=gpu:1"
+        mem_mb=32000, runtime=90, partition="gpu", account="richlab", extra="--gres=gpu:1"
     params:
-        sheet_pat = lambda wc: esc_braces((_expand(config.get("sample_sheet_pattern","")) or "").replace("{run}", "___RUN___")),
+        sheet_pat  = lambda wc: esc_braces((_expand(config.get("sample_sheet_pattern","")) or "").replace("{run}", "___RUN___")),
         sheet_name = lambda wc: esc_braces(SHEET_NAME.replace("{run}", "___RUN___")),
         sheet_dir  = lambda wc: esc_braces(SHEET_DIR),
-        kit       = lambda wc: config.get("barcode_kit",""),
+        kit        = lambda wc: config.get("barcode_kit",""),
     container: CONTAINERS["dorado"]
     shell: r"""
       set -euo pipefail
       mkdir -p "{output.demuxed}" "{output.summaries}"
+      bam="{input.basecalled}/{wildcards.run}.bam"
+      outdir="{output.demuxed}"
+      run_id="{wildcards.run}"
+      ssp_pat="{params.sheet_pat}"
+      if [[ -n "$ssp_pat" ]]; then
+        ssp="$(printf '%s' "$ssp_pat" | sed "s/___RUN___/$run_id/g")"
+      else
+        sname_tmpl="{params.sheet_name}"
+        sname="$(printf '%s' "$sname_tmpl" | sed "s/___RUN___/$run_id/g")"
+        ssp="{params.sheet_dir}/$sname"
+      fi
+      [[ -r "$ssp" ]] || ssp=""
+      dorado demux "$bam" --output-dir "$outdir" \
+        $([[ -n "$ssp" ]] && printf -- "--sample-sheet %q " "$ssp") \
+        $([[ -n "{params.kit}" ]] && printf -- "--kit-name %q " "{params.kit}") \
+        --emit-summary
+      if compgen -G "$outdir"/*.txt >/dev/null; then
+        mv -f "$outdir"/*.txt "{output.summaries}/{wildcards.run}_barcoding_summary.txt"
+      fi
+    """   
+    
+
+rule dorado_all_runs:
+    input:
+        [basecall_dir(r) for r in RUNS],
+        [demux_dir(r)    for r in RUNS],
+        
+def demux_index_path_for_run(run): return os.path.join(TMP, f"demux_index_{run}.tsv")
+
+rule demux_index_one_run:
+    input: demux = DEMUX_DIR_T
+    output: tsv = DEMUX_INDEX_T
+    container: CONTAINERS["cpu"]
+    shell: r"""
+      set -euo pipefail
+      out="{output.tsv}"
+      mkdir -p "$(dirname "$out")"
+      printf "sample\trun\tbam\n" > "$out"
       shopt -s nullglob
-      for bam in "{input.basecalled}"/*.bam; do
-        run_id="$(basename "$bam" .bam)"
-        outdir="{output.demuxed}/$run_id"
-        mkdir -p "$outdir"
-
-        ssp_pat="{params.sheet_pat}"
-        if [[ -n "$ssp_pat" ]]; then
-          ssp="$(printf '%s' "$ssp_pat" | sed "s/___RUN___/$run_id/g")"
-        else
-          sname_tmpl="{params.sheet_name}"  
-          sname="$(printf '%s' "$sname_tmpl" | sed "s/___RUN___/$run_id/g")"
-          ssp="{params.sheet_dir}/$sname"
-        fi
-        [[ -r "$ssp" ]] || ssp=""
-
-        dorado demux "$bam" --output-dir "$outdir" \
-          $([[ -n "$ssp" ]] && printf -- "--sample-sheet %q " "$ssp") \
-          $([[ -n "{params.kit}" ]] && printf -- "--kit-name %q " "{params.kit}") \
-          --emit-summary
-
-        if compgen -G "$outdir"/*.txt >/dev/null; then
-          mv -f "$outdir"/*.txt "{output.summaries}/$run_id"_barcoding_summary.txt
-        fi
+      for bam in "{input.demux}"/*.bam; do
+        base="$(basename "$bam" .bam)"
+        prefix="{wildcards.run}_"
+        sample="$(printf '%s' "$base" | sed -E "s/^$prefix//")"
+        printf "%s\t%s\t%s\n" "$sample" "{wildcards.run}" "$bam" >> "$out"
       done
     """
     
-if START_FROM_POD5:
-    ruleorder: dorado_trim > fastcat_filter
-    rule _raw_from_pod5:
-        input: _fastqs_from_ckpt
-        output: directory(RAW)
-        shell: "true"    
+rule demux_index_all:
+    input: [demux_index_path_for_run(r) for r in RUNS]
+    output: tsv = os.path.join(TMP, "demux_index.tsv")
+    container: CONTAINERS["cpu"]
+    shell: r"""
+      set -euo pipefail
+      cat {input} | awk 'NR==1 || FNR>1' > {output.tsv}
+    """
+    
+def bam_for_sample_run(wc):
+    idx = rules.demux_index_all.output.tsv
+    wanted = []
+    import csv as _csv
+    with open(idx) as fh:
+        rdr = _csv.DictReader(fh, delimiter="\t")
+        for row in rdr:
+            if row["run"] == wc.run and row["sample"] == wc.sample:
+                wanted.append(row["bam"])
+    if not wanted:
+        raise WorkflowError(f"No BAM for run={wc.run} sample={wc.sample} in {idx}")
+    return sorted(wanted)[-1]
 
 rule dorado_trim_sample:
-    input: bam = bam_for_sample
-    output: fastq = os.path.join(RAW, "{sample}.fastq")
-    threads: 8
+    input: bam = bam_for_sample_run          
+    output: fastq = os.path.join(RAW_DIR_T, "{sample}.fastq")   
+    threads: R("dorado_trim","threads",8)
     resources:
-        mem_mb=32000,
-        runtime=90,
-        partition="gpu",
-        account="richlab",
-        extra="--gres=gpu:1"
+        mem_mb=32000, runtime=90, partition="gpu", account="richlab", extra="--gres=gpu:1"
     params:
         kit    = lambda wc: config.get("barcode_kit",""),
         emitfq = lambda wc: str(config.get("trim_emit_fastq", True)).lower(),
         minlen = lambda wc: int(config.get("trim_minlen", 0)),
         skip_samples = lambda wc: " ".join(config.get("trim_skip_glob", [])) or "__NONE__"
-    log: os.path.join(OUT, "logs", "trim_{sample}.log")
+    log: LOG_TRIM_T
     container: CONTAINERS["dorado"]
     shell: r"""
       set -euo pipefail
+      mkdir -p "$(dirname "{output.fastq}")"
       sid="{wildcards.sample}"
       for pat in {params.skip_samples}; do
         [[ "$pat" == "__NONE__" ]] && break
@@ -375,21 +398,32 @@ rule dorado_trim_sample:
         $([[ "{params.emitfq}" == "true" ]] && printf -- "--emit-fastq ") \
         "{input.bam}" > "$tmp"
       if [[ {params.minlen} -gt 0 ]]; then
-        awk 'BEGIN{OFS="\n"} NR%4==1{h=$0} NR%4==2{s=$0} NR%4==3{p=$0} NR%4==0{q=$0; if(length(s)>={params.minlen}) print h,s,p,q}' "$tmp" > "{output.fastq}"
+        awk 'BEGIN{{OFS="\n"}} NR%4==1{{h=$0}} NR%4==2{{s=$0}} NR%4==3{{p=$0}} NR%4==0{{q=$0; if(length(s)>={params.minlen}) print h,s,p,q}}' "$tmp" > "{output.fastq}"
         rm -f "$tmp"
       else
         mv "$tmp" "{output.fastq}"
       fi
     """
-
-rule dorado_trim:
-    input: fastqs = _fastqs_from_ckpt
-    output: touch(os.path.join(TMP, f"trim_done.{DATASET}.ok"))
+    
+rule dorado_trim_run_done:
+    input:
+        fastqs = lambda wc: expand(os.path.join(raw_dir_for_run(wc.run), "{sample}.fastq"),
+                                   sample=[p.stem.replace(f"{wc.run}_","") for p in Path(demux_dir(wc.run)).glob("*.bam")])
+    output: touch(os.path.join(RAW_DIR_T, "demux_trim.done"))
     shell: "true"
 
 # ---------------- QC & prep (CPU containers) ----------------
+def all_raw_fastq_glob():
+    files = []
+    if Path(RAW_BASE).exists():
+        for r in RUNS:
+            d = raw_dir_for_run(r)
+            files.extend(glob.glob(os.path.join(d, "*.fastq")))
+            files.extend(glob.glob(os.path.join(d, "*.fastq.gz")))
+    return sorted(set(files))
+
 rule fastcat_filter:
-    input: RAW
+    input: all_raw_fastq_glob()
     output: fastq = directory(os.path.join(TMP, "filtered"))
     threads: R("fastcat_filter", "threads", 4)
     resources:
@@ -412,25 +446,24 @@ rule fastcat_filter:
     shell: r"""
       set -euo pipefail
       mkdir -p {output.fastq} {params.histdir}
-      shopt -s nullglob
-      for fq in {input}/*.fastq {input}/*.fastq.gz; do
+      for fq in {input}; do
         base=$(basename "$fq")
         for pat in {params.exclude}; do [[ "$pat" == "__NONE__" ]] && break; case "$base" in $pat) continue 2;; esac; done
         stem=$(printf "%s" "$base" | sed -E 's/\.fastq(\.gz)?$//; s/\.fq(\.gz)?$//')
-        hdir="{params.histdir}/${stem}"
-        filesum="{params.outdir_base}/qc/fastcat_file_summary_${stem}.tsv"
-        readsum="{params.outdir_base}/qc/fastcat_read_summary_${stem}.tsv"
-        out="{output.fastq}/${stem}.fastq"
+        hdir="{params.histdir}/${{stem}}"
+        filesum="{params.outdir_base}/qc/fastcat_file_summary_${{stem}}.tsv"
+        readsum="{params.outdir_base}/qc/fastcat_read_summary_${{stem}}.tsv"
+        out="{output.fastq}/${{stem}}.fastq"
         rm -rf "$hdir"
         fastcat --dust --min_qscore {params.min_q} --min_length {params.minlen} --max_length {params.maxlen} \
                 --histograms "$hdir" --file "$filesum" --read "$readsum" "$fq" > "$out"
       done
       if ls {params.outdir_base}/qc/fastcat_file_summary_*.tsv >/dev/null 2>&1; then
-        awk 'FNR==1 && NR!=1 { next } { print }' {params.outdir_base}/qc/fastcat_file_summary_*.tsv > {params.filesum}
-        awk 'FNR==1 && NR!=1 { next } { print }' {params.outdir_base}/qc/fastcat_read_summary_*.tsv > {params.readsum}
+        awk 'FNR==1 && NR!=1 {{ next }} {{ print }}' {params.outdir_base}/qc/fastcat_file_summary_*.tsv > {params.filesum}
+        awk 'FNR==1 && NR!=1 {{ next }} {{ print }}' {params.outdir_base}/qc/fastcat_read_summary_*.tsv > {params.readsum}
       fi
     """
-
+    
 rule nanoplot_qc:
     input: rules.fastcat_filter.output.fastq
     output: directory(os.path.join(OUT, "qc/nanoplot"))
@@ -494,20 +527,21 @@ rule spoa_consensus:
       find {input} -type f -path "*/clustering/fastq_files/*.fastq" | while read -r fq; do
         sample=$(basename "$(dirname "$(dirname "$fq")")")
         cid=$(basename "$fq" .fastq)
-        out="{output}/${sample}_${cid}.fasta"
-        n=$(awk 'END{print NR/4}' "$fq")
+        out="{output}/${{sample}}_${{cid}}.fasta"
+        n=$(awk 'END{{print NR/4}}' "$fq")
         if (( n < {params.min_reads} )); then continue; fi
-        tmpf=$(mktemp)
+        tmpd=$(mktemp -d)
+        tmpf="$tmpd/reads.fastq"   # ensure .fastq extension so spoa recognizes format
         if (( n > {params.max_reads} )); then
-          awk -v m={params.max_reads} 'NR%4==1{c++} c<=m{print}' "$fq" > "$tmpf"
+          awk -v m={params.max_reads} 'NR%4==1{{c++}} c<=m{{print}}' "$fq" > "$tmpf"
         else
           cp "$fq" "$tmpf"
         fi
         spoa {params.extra} "$tmpf" > "$out"
-        rm -f "$tmpf"
+        rm -rf "$tmpd"
       done
     """
-
+    
 rule vsearch_pool_cluster:
     input: rules.spoa_consensus.output
     output:
@@ -679,7 +713,7 @@ rule otu_table_per_sample:
       for fq in {input.reads}/*.fastq; do
         sid=$(basename "$fq" .fastq)
         vsearch --usearch_global "$fq" --db {input.refs} --id {MAP_ID} --strand {STRAND} \
-                --otutabout {OUT}/otu/tables/otu_table_${sid}.tsv --threads {threads}
+                --otutabout {OUT}/otu/tables/otu_table_${{sid}}.tsv --threads {threads}
       done
       python - <<'PY'
       import glob, os, pandas as pd
@@ -690,7 +724,7 @@ rule otu_table_per_sample:
           raise SystemExit("No per-sample OTU tables found to merge.")
       for d in dfs:
           first = d.columns[0]
-          d.rename(columns={first: "OTU"}, inplace=True)
+          d.rename(columns={{first: "OTU"}}, inplace=True)
       from functools import reduce
       merged = reduce(lambda l, r: pd.merge(l, r, on="OTU", how="outer"), dfs).fillna(0)
       merged.to_csv(out, sep="\t", index=False)

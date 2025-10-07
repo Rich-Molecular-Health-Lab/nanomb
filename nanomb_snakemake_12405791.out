@@ -1,0 +1,143 @@
+[env_setup]
+WORK                = /work/richlab/aliciarich
+NRDSTOR             = /mnt/nrdstor/richlab/aliciarich
+PROJ_ROOT           = /mnt/nrdstor/richlab/shared/nanomb
+OUT_ROOT            = /work/richlab/aliciarich/datasets/16s
+LOCAL_WORK          = /work/richlab/aliciarich/datasets/16s/_local_work
+APPTAINER_CACHEDIR  = /mnt/nrdstor/richlab/aliciarich/.apptainer/cache
+APPTAINER_TMPDIR    = /mnt/nrdstor/richlab/aliciarich/.apptainer/tmp
+Using profile profiles/hcc for setting default command line arguments.
+host: c2009.swan.hcc.unl.edu
+Building DAG of jobs...
+Need to rerun job vsearch_pool_cluster because job spoa_consensus has to be rerun.
+Need to rerun job map_all_reads because job vsearch_pool_cluster has to be rerun.
+Need to rerun job racon_round1 because job vsearch_pool_cluster has to be rerun.
+Need to rerun job all because job vsearch_pool_cluster has to be rerun.
+Need to rerun job racon_round1 because job map_all_reads has to be rerun.
+Need to rerun job map_r1 because job map_all_reads has to be rerun.
+Need to rerun job racon_round2 because job map_all_reads has to be rerun.
+Need to rerun job medaka_polish because job map_all_reads has to be rerun.
+Need to rerun job map_r1 because job racon_round1 has to be rerun.
+Need to rerun job racon_round2 because job racon_round1 has to be rerun.
+Need to rerun job otu_table_per_sample because of missing output required by all.
+Need to rerun job chimera_taxonomy_tree because of missing output required by all.
+Need to rerun job iqtree2_tree because of missing output required by all.
+Need to rerun job racon_round2 because job map_r1 has to be rerun.
+Need to rerun job medaka_polish because job racon_round2 has to be rerun.
+Need to rerun job chimera_taxonomy_tree because job medaka_polish has to be rerun.
+Need to rerun job all because job medaka_polish has to be rerun.
+Need to rerun job all because job otu_table_per_sample has to be rerun.
+Need to rerun job otu_table_per_sample because job chimera_taxonomy_tree has to be rerun.
+Need to rerun job iqtree2_tree because job chimera_taxonomy_tree has to be rerun.
+Need to rerun job all because job chimera_taxonomy_tree has to be rerun.
+Need to rerun job all because job iqtree2_tree has to be rerun.
+/work/richlab/aliciarich/datasets/16s/loris/culi/tmp/polished/r2.fasta: False 3
+/work/richlab/aliciarich/datasets/16s/loris/culi/tmp/consensus_drafts: True 0
+/work/richlab/aliciarich/datasets/16s/loris/culi/otu/otu_table_merged.tsv: False 1
+/work/richlab/aliciarich/datasets/16s/loris/culi/tmp/polished/r1.fasta: False 2
+/work/richlab/aliciarich/datasets/16s/loris/culi/otu/otu_tree.treefile: False 1
+: False 5
+/work/richlab/aliciarich/datasets/16s/loris/culi/tmp/polished/all_reads.fastq /work/richlab/aliciarich/datasets/16s/loris/culi/tmp/polished/map_r0.bam: False 1
+/work/richlab/aliciarich/datasets/16s/loris/culi/tmp/polished/polished_otus.fasta: False 2
+/work/richlab/aliciarich/datasets/16s/loris/culi/tmp/polished/map_r1.bam: False 2
+/work/richlab/aliciarich/datasets/16s/loris/culi/otu/otus_clean.fasta /work/richlab/aliciarich/datasets/16s/loris/culi/otu/otus_chimeras.fasta /work/richlab/aliciarich/datasets/16s/loris/culi/otu/otus_taxonomy.sintax /work/richlab/aliciarich/datasets/16s/loris/culi/otu/otu_references_aligned.fasta: False 1
+/work/richlab/aliciarich/datasets/16s/loris/culi/tmp/pooled/all_draft_otus.fasta /work/richlab/aliciarich/datasets/16s/loris/culi/otu/otus_centroids_99.fasta /work/richlab/aliciarich/datasets/16s/loris/culi/otu/otus_centroids_97.fasta: False 1
+shared_storage_local_copies: True
+remote_exec: False
+Submitting maximum 100 job(s) over 1.0 second(s).
+You are running snakemake in a SLURM job context. This is not recommended, as it may lead to unexpected behavior. Please run Snakemake directly on the login node.
+SLURM run ID: 43eff450-b57c-4d92-a6a1-6b28a951bab0
+Using shell: /usr/bin/bash
+Provided remote nodes: 16
+Job stats:
+job                      count
+---------------------  -------
+all                          1
+chimera_taxonomy_tree        1
+iqtree2_tree                 1
+map_all_reads                1
+map_r1                       1
+medaka_polish                1
+otu_table_per_sample         1
+racon_round1                 1
+racon_round2                 1
+spoa_consensus               1
+vsearch_pool_cluster         1
+total                       11
+
+Resources before job selection: {'_cores': 9223372036854775807, '_nodes': 16, '_job_count': 9223372036854775807}
+Ready jobs: 1
+Select jobs to execute...
+Selecting jobs to run using greedy solver.
+Selected jobs: 1
+Resources after job selection: {'_cores': 9223372036854775799, '_nodes': 15, '_job_count': 100}
+Execute 1 jobs...
+
+[Mon Oct  6 23:18:16 2025]
+rule spoa_consensus:
+    input: /work/richlab/aliciarich/datasets/16s/loris/culi/tmp/OTUs
+    output: /work/richlab/aliciarich/datasets/16s/loris/culi/tmp/consensus_drafts
+    log: /work/richlab/aliciarich/datasets/16s/loris/culi/logs/spoa_consensus.log
+    jobid: 27
+    reason: Missing output files: /work/richlab/aliciarich/datasets/16s/loris/culi/tmp/consensus_drafts; Code has changed since last execution
+    threads: 8
+    resources: mem_mb=16000, mem_mib=15259, disk_mb=1000, disk_mib=954, tmpdir=<TBD>, runtime=240, partition=batch, account=richlab, extra=
+Shell command: 
+      set -euo pipefail
+      mkdir -p /work/richlab/aliciarich/datasets/16s/loris/culi/tmp/consensus_drafts
+      find /work/richlab/aliciarich/datasets/16s/loris/culi/tmp/OTUs -type f -path "*/clustering/fastq_files/*.fastq" | while read -r fq; do
+        sample=$(basename "$(dirname "$(dirname "$fq")")")
+        cid=$(basename "$fq" .fastq)
+        out="/work/richlab/aliciarich/datasets/16s/loris/culi/tmp/consensus_drafts/${sample}_${cid}.fasta"
+        n=$(awk 'END{print NR/4}' "$fq")
+        if (( n < 3 )); then continue; fi
+        tmpd=$(mktemp -d)
+        tmpf="$tmpd/reads.fastq"   # ensure .fastq extension so spoa recognizes format
+        if (( n > 500 )); then
+          awk -v m=500 'NR%4==1{c++} c<=m{print}' "$fq" > "$tmpf"
+        else
+          cp "$fq" "$tmpf"
+        fi
+        spoa  "$tmpf" > "$out"
+        rm -rf "$tmpd"
+      done
+    
+No SLURM account given, trying to guess.
+Unable to guess SLURM account. Trying to proceed without.
+General args: ['--force', '--target-files-omit-workdir-adjustment', '', '--max-inventory-time 0', '--nocolor', '--notemp', '--no-hooks', '--nolock', '--ignore-incomplete', '', '--verbose ', '--rerun-triggers code params software-env input mtime', '', '', '', '--deployment-method apptainer', "--conda-frontend 'conda'", '', '', "--apptainer-prefix '/mnt/nrdstor/richlab/aliciarich/.apptainer'", '--apptainer-args base64//LS1udiAtLWJpbmQgL3dvcmssL2x1c3RyZSwvbW50L25yZHN0b3IsL2hvbWUsL21udC9ucmRzdG9yL3JpY2hsYWIvc2hhcmVkL2RvcmFkb19tb2RlbHM6L21vZGVscywvbW50L25yZHN0b3IvcmljaGxhYi9zaGFyZWQvZGF0YWJhc2VzOi9yZWZkYg==', '', '--shared-fs-usage source-cache persistence software-deployment sources input-output storage-local-copies', '', "--wrapper-prefix 'https://github.com/snakemake/snakemake-wrappers/raw/'", '', '', '', '--printshellcmds ', '', '--latency-wait 60', "--scheduler 'ilp'", '', '--local-storage-prefix base64//LnNuYWtlbWFrZS9zdG9yYWdl', "--scheduler-solver-path '/mnt/nrdstor/richlab/aliciarich/snakemake/bin'", '', '', '', '', '', '', '--default-resources base64//bWVtX21iPTgwMDA= base64//ZGlza19tYj1tYXgoMippbnB1dC5zaXplX21iLCAxMDAwKSBpZiBpbnB1dCBlbHNlIDUwMDAw base64//dG1wZGlyPXN5c3RlbV90bXBkaXI= base64//cnVudGltZT02MA== base64//cGFydGl0aW9uPWJhdGNo base64//YWNjb3VudD1yaWNobGFi base64//ZXh0cmE9IiI=', '']
+sbatch call: sbatch --parsable --job-name 43eff450-b57c-4d92-a6a1-6b28a951bab0 --output "/mnt/nrdstor/richlab/shared/nanomb/.snakemake/slurm_logs/rule_spoa_consensus/%j.log" --export=ALL --comment "rule_spoa_consensus"   -p batch -t 240 --mem 16000 --ntasks=1 --cpus-per-task=8 -D '/mnt/nrdstor/richlab/shared/nanomb' --wrap="/mnt/nrdstor/richlab/aliciarich/snakemake/bin/python3.12 -m snakemake --snakefile '/mnt/nrdstor/richlab/shared/nanomb/Snakefile' --target-jobs 'spoa_consensus:' --allowed-rules spoa_consensus --cores 'all' --attempt 1 --force-use-threads  --wait-for-files '/mnt/nrdstor/richlab/shared/nanomb/.snakemake/tmp.po_ddfdd' '/work/richlab/aliciarich/datasets/16s/loris/culi/tmp/OTUs' --force --target-files-omit-workdir-adjustment --max-inventory-time 0 --nocolor --notemp --no-hooks --nolock --ignore-incomplete --verbose  --rerun-triggers code params software-env input mtime --deployment-method apptainer --conda-frontend 'conda' --apptainer-prefix '/mnt/nrdstor/richlab/aliciarich/.apptainer' --apptainer-args base64//LS1udiAtLWJpbmQgL3dvcmssL2x1c3RyZSwvbW50L25yZHN0b3IsL2hvbWUsL21udC9ucmRzdG9yL3JpY2hsYWIvc2hhcmVkL2RvcmFkb19tb2RlbHM6L21vZGVscywvbW50L25yZHN0b3IvcmljaGxhYi9zaGFyZWQvZGF0YWJhc2VzOi9yZWZkYg== --shared-fs-usage source-cache persistence software-deployment sources input-output storage-local-copies --wrapper-prefix 'https://github.com/snakemake/snakemake-wrappers/raw/' --printshellcmds  --latency-wait 60 --scheduler 'ilp' --local-storage-prefix base64//LnNuYWtlbWFrZS9zdG9yYWdl --scheduler-solver-path '/mnt/nrdstor/richlab/aliciarich/snakemake/bin' --default-resources base64//bWVtX21iPTgwMDA= base64//ZGlza19tYj1tYXgoMippbnB1dC5zaXplX21iLCAxMDAwKSBpZiBpbnB1dCBlbHNlIDUwMDAw base64//dG1wZGlyPXN5c3RlbV90bXBkaXI= base64//cnVudGltZT02MA== base64//cGFydGl0aW9uPWJhdGNo base64//YWNjb3VudD1yaWNobGFi base64//ZXh0cmE9IiI= --executor slurm-jobstep --jobs 1 --mode 'remote'"
+Job 27 has been submitted with SLURM jobid 12405793 (log: /mnt/nrdstor/richlab/shared/nanomb/.snakemake/slurm_logs/rule_spoa_consensus/12405793.log).
+Waiting for running jobs to complete.
+Checking the status of 1 active jobs with 5 attempts.
+The job status was queried with command: sacct -X --parsable2 --clusters all --noheader --format=JobIdRaw,State --starttime 2025-10-04T23:00 --endtime now --name 43eff450-b57c-4d92-a6a1-6b28a951bab0
+It took: 0.016982078552246094 seconds
+The output is:
+'12405793|RUNNING
+'
+
+status_of_jobs after sacct is: {'12405793': 'RUNNING'}
+active_jobs_ids_with_current_sacct_status are: {'12405793'}
+active_jobs_seen_by_sacct are: {'12405793'}
+missing_sacct_status are: set()
+Checking the status of 1 active jobs with 5 attempts.
+The job status was queried with command: sacct -X --parsable2 --clusters all --noheader --format=JobIdRaw,State --starttime 2025-10-04T23:00 --endtime now --name 43eff450-b57c-4d92-a6a1-6b28a951bab0
+It took: 0.014635324478149414 seconds
+The output is:
+'12405793|RUNNING
+'
+
+status_of_jobs after sacct is: {'12405793': 'RUNNING'}
+active_jobs_ids_with_current_sacct_status are: {'12405793'}
+active_jobs_seen_by_sacct are: {'12405793'}
+missing_sacct_status are: set()
+Checking the status of 1 active jobs with 5 attempts.
+The job status was queried with command: sacct -X --parsable2 --clusters all --noheader --format=JobIdRaw,State --starttime 2025-10-04T23:00 --endtime now --name 43eff450-b57c-4d92-a6a1-6b28a951bab0
+It took: 0.014773368835449219 seconds
+The output is:
+'12405793|RUNNING
+'
+
+status_of_jobs after sacct is: {'12405793': 'RUNNING'}
+active_jobs_ids_with_current_sacct_status are: {'12405793'}
+active_jobs_seen_by_sacct are: {'12405793'}
+missing_sacct_status are: set()
