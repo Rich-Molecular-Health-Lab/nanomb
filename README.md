@@ -11,16 +11,16 @@ It is optimized for the Swan HPC environment and runs entirely from Apptainer co
 ### Workflow summary
 | Stage | Tool | Container | Notes |
 |-------|------|------------|-------|
-| Basecalling | **Dorado** | `dorado.sif` | GPU-based; uses ONT R10.4.1 SUP model |
-| Demultiplexing | **Dorado demux** | `dorado.sif` | Uses sample sheets under `samples/` |
-| Trimming | **Dorado trim** | `dorado.sif` | Generates per-sample FASTQs |
-| QC / Filtering | **Fastcat**, **NanoPlot** | `nanomb.sif` | Length & Q-score filters, QC plots |
-| Clustering | **isONclust3** | `nanomb.sif` | ONT-specific clustering of reads |
-| Consensus | **SPOA** | `nanomb.sif` | Builds per-cluster consensus sequences |
-| Pooling / OTUs | **VSEARCH** | `nanomb.sif` | Dereplication & clustering at 99 %/97 % |
-| Polishing | **Racon ×2**, **Medaka** | `nanombgpu.sif` | GPU polish to high-accuracy OTUs |
-| Taxonomy / Tree | **VSEARCH SINTAX**, **MAFFT**, **IQ-TREE 2** | `nanomb.sif` | Classify OTUs and infer phylogeny |
-| ASV option | **nanoASV** | `nanoasv.sif` | *Disabled by default for ONT kits* |
+| Basecalling | **Dorado** | `docker:nanoporetech/dorado:latest` | GPU-based; uses ONT R10.4.1 SUP model |
+| Demultiplexing | **Dorado demux** | `docker:nanoporetech/dorado:latest` | Uses sample sheets under `samples/` |
+| Trimming | **Dorado trim** | `docker:nanoporetech/dorado:latest` | Generates per-sample FASTQs |
+| QC / Filtering | **Fastcat**, **NanoPlot** | `docker:aliciamrich/nanomb` | Length & Q-score filters, QC plots |
+| Clustering | **isONclust3** | `docker:aliciamrich/nanomb` | ONT-specific clustering of reads |
+| Consensus | **SPOA** | `docker:aliciamrich/nanomb` | Builds per-cluster consensus sequences |
+| Pooling / OTUs | **VSEARCH** | `docker:aliciamrich/nanomb` | Dereplication & clustering at 99 %/97 % |
+| Polishing | **Racon ×2**, **Medaka** | `docker:aliciamrich/nanombgpu` | GPU polish to high-accuracy OTUs |
+| Taxonomy / Tree | **VSEARCH SINTAX**, **MAFFT**, **IQ-TREE 2** | `docker:aliciamrich/nanomb` | Classify OTUs and infer phylogeny |
+| ASV option | **nanoASV** | `docker:aliciamrich/nanoasv` | *Third-party workflow disabled by default for ONT kits* |
 
 ---
 
@@ -32,8 +32,8 @@ Data and outputs are resolved from environment variables defined by
 | Variable | Typical path | Purpose |
 |-----------|---------------|----------|
 | `PROJ_ROOT` | `/mnt/nrdstor/richlab/shared/nanomb` | Shared repo with Snakefile |
-| `WORK` | `/work/richlab/aliciarich` | Your Swan work directory |
-| `NRDSTOR` | `/mnt/nrdstor/richlab/aliciarich` | Long-term storage |
+| `WORK` | `/work/richlab/$USER` | Your Swan work directory |
+| `NRDSTOR` | `/mnt/nrdstor/richlab/$USER` | Long-term storage |
 | `OUT_ROOT` | `$WORK/datasets/16s` | Root for all datasets |
 | `sampleset` | e.g. `loris` | Sample collection name |
 | `dataset` | e.g. `culi` | Logical dataset under a sampleset |
