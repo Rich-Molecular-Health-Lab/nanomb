@@ -571,28 +571,35 @@ rule vsearch_pool_cluster:
 
 rule map_all_reads:
     input:
-        reads_dir = os.path.join(TMP, "filtered"),
-        ref_99    = os.path.join(OUT, "otu/otus_centroids_99.fasta")
+        reads = os.path.join(TMP, "filtered"),
+        refs  = os.path.join(OUT, "otu/otus_centroids_99.fasta")
     output:
-        fq   = ALL_READS_FQ,
-        bam  = MAP_BAM_99
-    threads: R("map_all_reads", "threads", THREADS)
+        all_reads = os.path.join(TMP, "polished/all_reads.fastq"),
+        bam       = os.path.join(TMP, "polished/map_r0.bam")
+    threads: R("map_all_reads", "threads", 16)
     resources:
-        mem_mb   = R("map_all_reads", "mem_mb", 16000),
+        mem_mb   = R("map_all_reads", "mem_mb", 32000),
         runtime  = R("map_all_reads", "runtime", 180),
         partition= R("map_all_reads", "partition", "batch"),
         account  = R("map_all_reads", "account", "richlab")
-    params:
-        tmp = TMP, outdir = OUT
-    container: CONTAINERS["cpu"]
+    log: os.path.join(OUT, "logs/map_all_reads.log")
+    container: None
     shell: r"""
       set -euo pipefail
-      mkdir -p {POLISH_DIR}
-      cat {input.reads_dir}/*.fastq > {output.fq}
-      minimap2 -t {threads} -ax map-ont {input.ref_99} {output.fq} | samtools sort -@ {threads} -o {output.bam}
-      samtools index {output.bam}
-    """
+      module load minimap2 samtools || true
 
+      mkdir -p "$(dirname {output.all_reads})" "$(dirname {output.bam})"
+
+      : > "{output.all_reads}"
+      find "{input.reads}" -maxdepth 1 -type f -name '*.fastq' -print0 \
+        | xargs -0 cat >> "{output.all_reads}"
+
+      minimap2 -t {threads} -ax map-ont "{input.refs}" "{output.all_reads}" \
+        | samtools sort -@ {threads} -m 2G -o "{output.bam}"
+
+      samtools index "{output.bam}"
+    """
+    
 rule racon_round1:
     input: reads = ALL_READS_FQ, bam = MAP_BAM_99, ref = os.path.join(OUT, "otu/otus_centroids_99.fasta")
     output: r1 = R1_FASTA
