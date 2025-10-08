@@ -42,7 +42,7 @@ Execution runs entirely under Apptainer, ensuring consistent environments across
                    │ aliciamrich/nanoalign:cpu           │
                    │-------------------------------------│
                    │ • Minimap2 mapping (map_r0 / r1)    │
-                   │ • Samtools BAM→SAM conversion        │
+                   │ • Samtools BAM→SAM conversion       │
                    │ • Racon ×2 polishing (CPU)          │
                    └────────────────┬────────────────────┘
                                     │
@@ -56,11 +56,11 @@ Execution runs entirely under Apptainer, ensuring consistent environments across
                                   │
                                   ▼
           ┌────────────────────────────────────────────────────┐
-          │ CPU CONTAINER: NANOMB                             │
+          │ CPU CONTAINER: NANOMB                              │
           │----------------------------------------------------│
-          │ • VSEARCH SINTAX taxonomy                         │
-          │ • MAFFT multiple-sequence alignment               │
-          │ • IQ-TREE 2 phylogenetic tree inference           │
+          │ • VSEARCH SINTAX taxonomy                          │
+          │ • MAFFT multiple-sequence alignment                │
+          │ • IQ-TREE 2 phylogenetic tree inference            │
           └────────────────────────────────────────────────────┘
                                   │
                                   ▼
@@ -87,9 +87,9 @@ Execution runs entirely under Apptainer, ensuring consistent environments across
 | Clustering | **isONclust3** | `docker:aliciamrich/nanomb` | ONT-specific clustering |
 | Consensus | **SPOA** | `docker:aliciamrich/nanomb` | Generates per-cluster consensus |
 | Pooling / OTUs | **VSEARCH** | `docker:aliciamrich/nanomb` | Dereplication & clustering at 99%/97% |
-| Mapping	Minimap2 + Samtools |	`docker:aliciamrich/nanoalign:cpu` |	CPU-only alignment for polishing |
-| Polishing	Racon × 2, Medaka |	`docker:aliciamrich/nanoalign:cpu` (Racon) → `docker:aliciamrich/nanombgpu (Medaka)` |	Sequential polish: Racon × 2 + GPU Medaka |
-| Taxonomy / Tree	VSEARCH SINTAX, MAFFT, IQ-TREE 2 |	docker:aliciamrich/nanomb:cpu |	Taxonomic classification + phylogeny |
+| Mapping |	**Minimap2 + Samtools** |	`docker:aliciamrich/nanoalign:cpu` |	CPU-only alignment for polishing |
+| Polishing |	**Racon × 2, Medaka** |	`docker:aliciamrich/nanoalign:cpu` (Racon) → `docker:aliciamrich/nanombgpu (Medaka)` |	Sequential polish: Racon × 2 + GPU Medaka |
+| Taxonomy/Tree |	**VSEARCH SINTAX, MAFFT, IQ-TREE 2** |	docker:aliciamrich/nanomb:cpu |	Taxonomic classification + phylogeny |
 | ASV option | **nanoASV** | `docker:aliciamrich/nanoasv` | *Third-party workflow disabled by default for 16S kits* |
 
 ---
