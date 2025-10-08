@@ -1,0 +1,385 @@
+[env_setup]
+WORK                = /work/richlab/aliciarich
+NRDSTOR             = /mnt/nrdstor/richlab/aliciarich
+PROJ_ROOT           = /mnt/nrdstor/richlab/shared/nanomb
+OUT_ROOT            = /work/richlab/aliciarich/datasets/16s
+LOCAL_WORK          = /work/richlab/aliciarich/datasets/16s/_local_work
+APPTAINER_CACHEDIR  = /mnt/nrdstor/richlab/aliciarich/.apptainer/cache
+APPTAINER_TMPDIR    = /mnt/nrdstor/richlab/aliciarich/.apptainer/tmp
+Using profile profiles/hcc for setting default command line arguments.
+host: c2006.swan.hcc.unl.edu
+Building DAG of jobs...
+Need to rerun job map_r1 because job racon_round1 has to be rerun.
+Need to rerun job racon_round2 because job racon_round1 has to be rerun.
+Need to rerun job racon_round2 because job map_r1 has to be rerun.
+Need to rerun job medaka_polish because job racon_round2 has to be rerun.
+Need to rerun job chimera_taxonomy_tree because job medaka_polish has to be rerun.
+Need to rerun job all because job medaka_polish has to be rerun.
+Need to rerun job otu_table_per_sample because job chimera_taxonomy_tree has to be rerun.
+Need to rerun job iqtree2_tree because job chimera_taxonomy_tree has to be rerun.
+Need to rerun job all because job chimera_taxonomy_tree has to be rerun.
+Need to rerun job all because job otu_table_per_sample has to be rerun.
+Need to rerun job all because job iqtree2_tree has to be rerun.
+/work/richlab/aliciarich/datasets/16s/loris/culi/tmp/polished/r2.fasta: False 2
+/work/richlab/aliciarich/datasets/16s/loris/culi/otu/otu_table_merged.tsv: False 1
+/work/richlab/aliciarich/datasets/16s/loris/culi/tmp/polished/r1.fasta: True 0
+/work/richlab/aliciarich/datasets/16s/loris/culi/otu/otu_tree.treefile: False 1
+: False 4
+/work/richlab/aliciarich/datasets/16s/loris/culi/tmp/polished/polished_otus.fasta: False 1
+/work/richlab/aliciarich/datasets/16s/loris/culi/tmp/polished/map_r1.bam: False 1
+/work/richlab/aliciarich/datasets/16s/loris/culi/otu/otus_clean.fasta /work/richlab/aliciarich/datasets/16s/loris/culi/otu/otus_chimeras.fasta /work/richlab/aliciarich/datasets/16s/loris/culi/otu/otus_taxonomy.sintax /work/richlab/aliciarich/datasets/16s/loris/culi/otu/otu_references_aligned.fasta: False 1
+shared_storage_local_copies: True
+remote_exec: False
+Submitting maximum 100 job(s) over 1.0 second(s).
+You are running snakemake in a SLURM job context. This is not recommended, as it may lead to unexpected behavior. Please run Snakemake directly on the login node.
+SLURM run ID: 3387e1db-5fee-4087-984d-1e7afb047c8c
+Using shell: /usr/bin/bash
+Provided remote nodes: 16
+Job stats:
+job                      count
+---------------------  -------
+all                          1
+chimera_taxonomy_tree        1
+iqtree2_tree                 1
+map_r1                       1
+medaka_polish                1
+otu_table_per_sample         1
+racon_round1                 1
+racon_round2                 1
+total                        8
+
+Resources before job selection: {'_cores': 9223372036854775807, '_nodes': 16, '_job_count': 9223372036854775807}
+Ready jobs: 1
+Select jobs to execute...
+Selecting jobs to run using greedy solver.
+Selected jobs: 1
+Resources after job selection: {'_cores': 9223372036854775791, '_nodes': 15, '_job_count': 100}
+Execute 1 jobs...
+
+[Wed Oct  8 11:42:43 2025]
+rule racon_round1:
+    input: /work/richlab/aliciarich/datasets/16s/loris/culi/tmp/polished/all_reads.fastq, /work/richlab/aliciarich/datasets/16s/loris/culi/tmp/polished/map_r0.bam, /work/richlab/aliciarich/datasets/16s/loris/culi/otu/otus_centroids_99.fasta
+    output: /work/richlab/aliciarich/datasets/16s/loris/culi/tmp/polished/r1.fasta
+    jobid: 31
+    reason: Missing output files: /work/richlab/aliciarich/datasets/16s/loris/culi/tmp/polished/r1.fasta; Code has changed since last execution
+    threads: 16
+    resources: mem_mb=16000, mem_mib=15259, disk_mb=11245, disk_mib=10725, tmpdir=<TBD>, runtime=120, partition=batch, account=richlab, extra=
+Shell command: 
+        set -euo pipefail
+        echo "== Versions ==" >&2
+        samtools --version | head -n1 >&2 || true
+        racon --version >&2 || true
+        echo "reads: /work/richlab/aliciarich/datasets/16s/loris/culi/tmp/polished/all_reads.fastq" >&2
+        echo "bam:   /work/richlab/aliciarich/datasets/16s/loris/culi/tmp/polished/map_r0.bam"   >&2
+        echo "refs:  /work/richlab/aliciarich/datasets/16s/loris/culi/otu/otus_centroids_99.fasta"  >&2
+        echo "threads: 16"   >&2
+
+        tmp_sam=$(mktemp --suffix=.sam)
+        trap 'rm -f "$tmp_sam"' EXIT
+
+        samtools view -@ 16 -h "/work/richlab/aliciarich/datasets/16s/loris/culi/tmp/polished/map_r0.bam" -o "$tmp_sam"
+
+        racon -t 16 "/work/richlab/aliciarich/datasets/16s/loris/culi/tmp/polished/all_reads.fastq" "$tmp_sam" "/work/richlab/aliciarich/datasets/16s/loris/culi/otu/otus_centroids_99.fasta" > "/work/richlab/aliciarich/datasets/16s/loris/culi/tmp/polished/r1.fasta"
+
+        test -s "/work/richlab/aliciarich/datasets/16s/loris/culi/tmp/polished/r1.fasta" && grep -q "^>" "/work/richlab/aliciarich/datasets/16s/loris/culi/tmp/polished/r1.fasta"
+    
+No SLURM account given, trying to guess.
+Unable to guess SLURM account. Trying to proceed without.
+General args: ['--force', '--target-files-omit-workdir-adjustment', '', '--max-inventory-time 0', '--nocolor', '--notemp', '--no-hooks', '--nolock', '--ignore-incomplete', '', '--verbose ', '--rerun-triggers input params software-env mtime code', '', '', '', '--deployment-method apptainer', "--conda-frontend 'conda'", '', '', "--apptainer-prefix '/mnt/nrdstor/richlab/aliciarich/.apptainer'", '--apptainer-args base64//LS1udiAtLWJpbmQgL3dvcmssL2x1c3RyZSwvbW50L25yZHN0b3IsL2hvbWUsL21udC9ucmRzdG9yL3JpY2hsYWIvc2hhcmVkL2RvcmFkb19tb2RlbHM6L21vZGVscywvbW50L25yZHN0b3IvcmljaGxhYi9zaGFyZWQvZGF0YWJhc2VzOi9yZWZkYg==', '', '--shared-fs-usage source-cache software-deployment input-output sources persistence storage-local-copies', '', "--wrapper-prefix 'https://github.com/snakemake/snakemake-wrappers/raw/'", '', '', '', '--printshellcmds ', '', '--latency-wait 60', "--scheduler 'ilp'", '', '--local-storage-prefix base64//LnNuYWtlbWFrZS9zdG9yYWdl', "--scheduler-solver-path '/mnt/nrdstor/richlab/aliciarich/snakemake/bin'", '', '', '', '', '', '', '--default-resources base64//bWVtX21iPTgwMDA= base64//ZGlza19tYj1tYXgoMippbnB1dC5zaXplX21iLCAxMDAwKSBpZiBpbnB1dCBlbHNlIDUwMDAw base64//dG1wZGlyPXN5c3RlbV90bXBkaXI= base64//cnVudGltZT02MA== base64//cGFydGl0aW9uPWJhdGNo base64//YWNjb3VudD1yaWNobGFi base64//ZXh0cmE9IiI=', '']
+sbatch call: sbatch --parsable --job-name 3387e1db-5fee-4087-984d-1e7afb047c8c --output "/mnt/nrdstor/richlab/shared/nanomb/.snakemake/slurm_logs/rule_racon_round1/%j.log" --export=ALL --comment "rule_racon_round1"   -p batch -t 120 --mem 16000 --ntasks=1 --cpus-per-task=16 -D '/mnt/nrdstor/richlab/shared/nanomb' --wrap="/mnt/nrdstor/richlab/aliciarich/snakemake/bin/python3.12 -m snakemake --snakefile '/mnt/nrdstor/richlab/shared/nanomb/Snakefile' --target-jobs 'racon_round1:' --allowed-rules racon_round1 --cores 'all' --attempt 1 --force-use-threads  --wait-for-files '/mnt/nrdstor/richlab/shared/nanomb/.snakemake/tmp.8ngibtkv' '/work/richlab/aliciarich/datasets/16s/loris/culi/tmp/polished/all_reads.fastq' '/work/richlab/aliciarich/datasets/16s/loris/culi/tmp/polished/map_r0.bam' '/work/richlab/aliciarich/datasets/16s/loris/culi/otu/otus_centroids_99.fasta' --force --target-files-omit-workdir-adjustment --max-inventory-time 0 --nocolor --notemp --no-hooks --nolock --ignore-incomplete --verbose  --rerun-triggers input params software-env mtime code --deployment-method apptainer --conda-frontend 'conda' --apptainer-prefix '/mnt/nrdstor/richlab/aliciarich/.apptainer' --apptainer-args base64//LS1udiAtLWJpbmQgL3dvcmssL2x1c3RyZSwvbW50L25yZHN0b3IsL2hvbWUsL21udC9ucmRzdG9yL3JpY2hsYWIvc2hhcmVkL2RvcmFkb19tb2RlbHM6L21vZGVscywvbW50L25yZHN0b3IvcmljaGxhYi9zaGFyZWQvZGF0YWJhc2VzOi9yZWZkYg== --shared-fs-usage source-cache software-deployment input-output sources persistence storage-local-copies --wrapper-prefix 'https://github.com/snakemake/snakemake-wrappers/raw/' --printshellcmds  --latency-wait 60 --scheduler 'ilp' --local-storage-prefix base64//LnNuYWtlbWFrZS9zdG9yYWdl --scheduler-solver-path '/mnt/nrdstor/richlab/aliciarich/snakemake/bin' --default-resources base64//bWVtX21iPTgwMDA= base64//ZGlza19tYj1tYXgoMippbnB1dC5zaXplX21iLCAxMDAwKSBpZiBpbnB1dCBlbHNlIDUwMDAw base64//dG1wZGlyPXN5c3RlbV90bXBkaXI= base64//cnVudGltZT02MA== base64//cGFydGl0aW9uPWJhdGNo base64//YWNjb3VudD1yaWNobGFi base64//ZXh0cmE9IiI= --executor slurm-jobstep --jobs 1 --mode 'remote'"
+Job 31 has been submitted with SLURM jobid 12421650 (log: /mnt/nrdstor/richlab/shared/nanomb/.snakemake/slurm_logs/rule_racon_round1/12421650.log).
+Waiting for running jobs to complete.
+Checking the status of 1 active jobs with 5 attempts.
+The job status was queried with command: sacct -X --parsable2 --clusters all --noheader --format=JobIdRaw,State --starttime 2025-10-06T11:00 --endtime now --name 3387e1db-5fee-4087-984d-1e7afb047c8c
+It took: 0.013358116149902344 seconds
+The output is:
+'12421650|RUNNING
+'
+
+status_of_jobs after sacct is: {'12421650': 'RUNNING'}
+active_jobs_ids_with_current_sacct_status are: {'12421650'}
+active_jobs_seen_by_sacct are: {'12421650'}
+missing_sacct_status are: set()
+Checking the status of 1 active jobs with 5 attempts.
+The job status was queried with command: sacct -X --parsable2 --clusters all --noheader --format=JobIdRaw,State --starttime 2025-10-06T11:00 --endtime now --name 3387e1db-5fee-4087-984d-1e7afb047c8c
+It took: 0.015395879745483398 seconds
+The output is:
+'12421650|RUNNING
+'
+
+status_of_jobs after sacct is: {'12421650': 'RUNNING'}
+active_jobs_ids_with_current_sacct_status are: {'12421650'}
+active_jobs_seen_by_sacct are: {'12421650'}
+missing_sacct_status are: set()
+Checking the status of 1 active jobs with 5 attempts.
+The job status was queried with command: sacct -X --parsable2 --clusters all --noheader --format=JobIdRaw,State --starttime 2025-10-06T11:00 --endtime now --name 3387e1db-5fee-4087-984d-1e7afb047c8c
+It took: 0.013780832290649414 seconds
+The output is:
+'12421650|RUNNING
+'
+
+status_of_jobs after sacct is: {'12421650': 'RUNNING'}
+active_jobs_ids_with_current_sacct_status are: {'12421650'}
+active_jobs_seen_by_sacct are: {'12421650'}
+missing_sacct_status are: set()
+Checking the status of 1 active jobs with 5 attempts.
+The job status was queried with command: sacct -X --parsable2 --clusters all --noheader --format=JobIdRaw,State --starttime 2025-10-06T11:00 --endtime now --name 3387e1db-5fee-4087-984d-1e7afb047c8c
+It took: 0.0157318115234375 seconds
+The output is:
+'12421650|RUNNING
+'
+
+status_of_jobs after sacct is: {'12421650': 'RUNNING'}
+active_jobs_ids_with_current_sacct_status are: {'12421650'}
+active_jobs_seen_by_sacct are: {'12421650'}
+missing_sacct_status are: set()
+Checking the status of 1 active jobs with 5 attempts.
+The job status was queried with command: sacct -X --parsable2 --clusters all --noheader --format=JobIdRaw,State --starttime 2025-10-06T11:00 --endtime now --name 3387e1db-5fee-4087-984d-1e7afb047c8c
+It took: 0.013327836990356445 seconds
+The output is:
+'12421650|RUNNING
+'
+
+status_of_jobs after sacct is: {'12421650': 'RUNNING'}
+active_jobs_ids_with_current_sacct_status are: {'12421650'}
+active_jobs_seen_by_sacct are: {'12421650'}
+missing_sacct_status are: set()
+Checking the status of 1 active jobs with 5 attempts.
+The job status was queried with command: sacct -X --parsable2 --clusters all --noheader --format=JobIdRaw,State --starttime 2025-10-06T11:00 --endtime now --name 3387e1db-5fee-4087-984d-1e7afb047c8c
+It took: 0.014044523239135742 seconds
+The output is:
+'12421650|RUNNING
+'
+
+status_of_jobs after sacct is: {'12421650': 'RUNNING'}
+active_jobs_ids_with_current_sacct_status are: {'12421650'}
+active_jobs_seen_by_sacct are: {'12421650'}
+missing_sacct_status are: set()
+Checking the status of 1 active jobs with 5 attempts.
+The job status was queried with command: sacct -X --parsable2 --clusters all --noheader --format=JobIdRaw,State --starttime 2025-10-06T11:00 --endtime now --name 3387e1db-5fee-4087-984d-1e7afb047c8c
+It took: 0.014120817184448242 seconds
+The output is:
+'12421650|RUNNING
+'
+
+status_of_jobs after sacct is: {'12421650': 'RUNNING'}
+active_jobs_ids_with_current_sacct_status are: {'12421650'}
+active_jobs_seen_by_sacct are: {'12421650'}
+missing_sacct_status are: set()
+Checking the status of 1 active jobs with 5 attempts.
+The job status was queried with command: sacct -X --parsable2 --clusters all --noheader --format=JobIdRaw,State --starttime 2025-10-06T11:00 --endtime now --name 3387e1db-5fee-4087-984d-1e7afb047c8c
+It took: 0.01388406753540039 seconds
+The output is:
+'12421650|RUNNING
+'
+
+status_of_jobs after sacct is: {'12421650': 'RUNNING'}
+active_jobs_ids_with_current_sacct_status are: {'12421650'}
+active_jobs_seen_by_sacct are: {'12421650'}
+missing_sacct_status are: set()
+Checking the status of 1 active jobs with 5 attempts.
+The job status was queried with command: sacct -X --parsable2 --clusters all --noheader --format=JobIdRaw,State --starttime 2025-10-06T11:00 --endtime now --name 3387e1db-5fee-4087-984d-1e7afb047c8c
+It took: 0.013895511627197266 seconds
+The output is:
+'12421650|RUNNING
+'
+
+status_of_jobs after sacct is: {'12421650': 'RUNNING'}
+active_jobs_ids_with_current_sacct_status are: {'12421650'}
+active_jobs_seen_by_sacct are: {'12421650'}
+missing_sacct_status are: set()
+Checking the status of 1 active jobs with 5 attempts.
+The job status was queried with command: sacct -X --parsable2 --clusters all --noheader --format=JobIdRaw,State --starttime 2025-10-06T11:00 --endtime now --name 3387e1db-5fee-4087-984d-1e7afb047c8c
+It took: 0.016042709350585938 seconds
+The output is:
+'12421650|RUNNING
+'
+
+status_of_jobs after sacct is: {'12421650': 'RUNNING'}
+active_jobs_ids_with_current_sacct_status are: {'12421650'}
+active_jobs_seen_by_sacct are: {'12421650'}
+missing_sacct_status are: set()
+Checking the status of 1 active jobs with 5 attempts.
+The job status was queried with command: sacct -X --parsable2 --clusters all --noheader --format=JobIdRaw,State --starttime 2025-10-06T11:00 --endtime now --name 3387e1db-5fee-4087-984d-1e7afb047c8c
+It took: 0.01382589340209961 seconds
+The output is:
+'12421650|RUNNING
+'
+
+status_of_jobs after sacct is: {'12421650': 'RUNNING'}
+active_jobs_ids_with_current_sacct_status are: {'12421650'}
+active_jobs_seen_by_sacct are: {'12421650'}
+missing_sacct_status are: set()
+Checking the status of 1 active jobs with 5 attempts.
+The job status was queried with command: sacct -X --parsable2 --clusters all --noheader --format=JobIdRaw,State --starttime 2025-10-06T11:00 --endtime now --name 3387e1db-5fee-4087-984d-1e7afb047c8c
+It took: 0.014706134796142578 seconds
+The output is:
+'12421650|RUNNING
+'
+
+status_of_jobs after sacct is: {'12421650': 'RUNNING'}
+active_jobs_ids_with_current_sacct_status are: {'12421650'}
+active_jobs_seen_by_sacct are: {'12421650'}
+missing_sacct_status are: set()
+Checking the status of 1 active jobs with 5 attempts.
+The job status was queried with command: sacct -X --parsable2 --clusters all --noheader --format=JobIdRaw,State --starttime 2025-10-06T11:00 --endtime now --name 3387e1db-5fee-4087-984d-1e7afb047c8c
+It took: 0.015928268432617188 seconds
+The output is:
+'12421650|RUNNING
+'
+
+status_of_jobs after sacct is: {'12421650': 'RUNNING'}
+active_jobs_ids_with_current_sacct_status are: {'12421650'}
+active_jobs_seen_by_sacct are: {'12421650'}
+missing_sacct_status are: set()
+Checking the status of 1 active jobs with 5 attempts.
+The job status was queried with command: sacct -X --parsable2 --clusters all --noheader --format=JobIdRaw,State --starttime 2025-10-06T12:00 --endtime now --name 3387e1db-5fee-4087-984d-1e7afb047c8c
+It took: 0.015841960906982422 seconds
+The output is:
+'12421650|RUNNING
+'
+
+status_of_jobs after sacct is: {'12421650': 'RUNNING'}
+active_jobs_ids_with_current_sacct_status are: {'12421650'}
+active_jobs_seen_by_sacct are: {'12421650'}
+missing_sacct_status are: set()
+Checking the status of 1 active jobs with 5 attempts.
+The job status was queried with command: sacct -X --parsable2 --clusters all --noheader --format=JobIdRaw,State --starttime 2025-10-06T12:00 --endtime now --name 3387e1db-5fee-4087-984d-1e7afb047c8c
+It took: 0.01552581787109375 seconds
+The output is:
+'12421650|FAILED
+'
+
+status_of_jobs after sacct is: {'12421650': 'FAILED'}
+active_jobs_ids_with_current_sacct_status are: {'12421650'}
+active_jobs_seen_by_sacct are: {'12421650'}
+missing_sacct_status are: set()
+[Wed Oct  8 12:03:09 2025]
+Error in rule racon_round1:
+    message: SLURM-job '12421650' failed, SLURM status is: 'FAILED'. For further error details see the cluster/cloud log and the log files of the involved rule(s).
+    jobid: 31
+    input: /work/richlab/aliciarich/datasets/16s/loris/culi/tmp/polished/all_reads.fastq, /work/richlab/aliciarich/datasets/16s/loris/culi/tmp/polished/map_r0.bam, /work/richlab/aliciarich/datasets/16s/loris/culi/otu/otus_centroids_99.fasta
+    output: /work/richlab/aliciarich/datasets/16s/loris/culi/tmp/polished/r1.fasta
+    log: /mnt/nrdstor/richlab/shared/nanomb/.snakemake/slurm_logs/rule_racon_round1/12421650.log (check log file(s) for error details)
+    shell:
+        
+        set -euo pipefail
+        echo "== Versions ==" >&2
+        samtools --version | head -n1 >&2 || true
+        racon --version >&2 || true
+        echo "reads: /work/richlab/aliciarich/datasets/16s/loris/culi/tmp/polished/all_reads.fastq" >&2
+        echo "bam:   /work/richlab/aliciarich/datasets/16s/loris/culi/tmp/polished/map_r0.bam"   >&2
+        echo "refs:  /work/richlab/aliciarich/datasets/16s/loris/culi/otu/otus_centroids_99.fasta"  >&2
+        echo "threads: 16"   >&2
+
+        tmp_sam=$(mktemp --suffix=.sam)
+        trap 'rm -f "$tmp_sam"' EXIT
+
+        samtools view -@ 16 -h "/work/richlab/aliciarich/datasets/16s/loris/culi/tmp/polished/map_r0.bam" -o "$tmp_sam"
+
+        racon -t 16 "/work/richlab/aliciarich/datasets/16s/loris/culi/tmp/polished/all_reads.fastq" "$tmp_sam" "/work/richlab/aliciarich/datasets/16s/loris/culi/otu/otus_centroids_99.fasta" > "/work/richlab/aliciarich/datasets/16s/loris/culi/tmp/polished/r1.fasta"
+
+        test -s "/work/richlab/aliciarich/datasets/16s/loris/culi/tmp/polished/r1.fasta" && grep -q "^>" "/work/richlab/aliciarich/datasets/16s/loris/culi/tmp/polished/r1.fasta"
+    
+        (command exited with non-zero exit code)
+    external_jobid: 12421650
+Trying to restart job 31.
+Resources before job selection: {'_cores': 9223372036854775807, '_nodes': 16, '_job_count': 100}
+Ready jobs: 1
+Select jobs to execute...
+Selecting jobs to run using greedy solver.
+Selected jobs: 1
+Resources after job selection: {'_cores': 9223372036854775791, '_nodes': 15, '_job_count': 100}
+Execute 1 jobs...
+
+[Wed Oct  8 12:03:10 2025]
+rule racon_round1:
+    input: /work/richlab/aliciarich/datasets/16s/loris/culi/tmp/polished/all_reads.fastq, /work/richlab/aliciarich/datasets/16s/loris/culi/tmp/polished/map_r0.bam, /work/richlab/aliciarich/datasets/16s/loris/culi/otu/otus_centroids_99.fasta
+    output: /work/richlab/aliciarich/datasets/16s/loris/culi/tmp/polished/r1.fasta
+    jobid: 31
+    reason: Missing output files: /work/richlab/aliciarich/datasets/16s/loris/culi/tmp/polished/r1.fasta; Code has changed since last execution
+    threads: 16
+    resources: mem_mb=16000, mem_mib=15259, disk_mb=11245, disk_mib=10725, tmpdir=<TBD>, runtime=120, partition=batch, account=richlab, extra=
+Shell command: 
+        set -euo pipefail
+        echo "== Versions ==" >&2
+        samtools --version | head -n1 >&2 || true
+        racon --version >&2 || true
+        echo "reads: /work/richlab/aliciarich/datasets/16s/loris/culi/tmp/polished/all_reads.fastq" >&2
+        echo "bam:   /work/richlab/aliciarich/datasets/16s/loris/culi/tmp/polished/map_r0.bam"   >&2
+        echo "refs:  /work/richlab/aliciarich/datasets/16s/loris/culi/otu/otus_centroids_99.fasta"  >&2
+        echo "threads: 16"   >&2
+
+        tmp_sam=$(mktemp --suffix=.sam)
+        trap 'rm -f "$tmp_sam"' EXIT
+
+        samtools view -@ 16 -h "/work/richlab/aliciarich/datasets/16s/loris/culi/tmp/polished/map_r0.bam" -o "$tmp_sam"
+
+        racon -t 16 "/work/richlab/aliciarich/datasets/16s/loris/culi/tmp/polished/all_reads.fastq" "$tmp_sam" "/work/richlab/aliciarich/datasets/16s/loris/culi/otu/otus_centroids_99.fasta" > "/work/richlab/aliciarich/datasets/16s/loris/culi/tmp/polished/r1.fasta"
+
+        test -s "/work/richlab/aliciarich/datasets/16s/loris/culi/tmp/polished/r1.fasta" && grep -q "^>" "/work/richlab/aliciarich/datasets/16s/loris/culi/tmp/polished/r1.fasta"
+    
+General args: ['--force', '--target-files-omit-workdir-adjustment', '', '--max-inventory-time 0', '--nocolor', '--notemp', '--no-hooks', '--nolock', '--ignore-incomplete', '', '--verbose ', '--rerun-triggers input params software-env mtime code', '', '', '', '--deployment-method apptainer', "--conda-frontend 'conda'", '', '', "--apptainer-prefix '/mnt/nrdstor/richlab/aliciarich/.apptainer'", '--apptainer-args base64//LS1udiAtLWJpbmQgL3dvcmssL2x1c3RyZSwvbW50L25yZHN0b3IsL2hvbWUsL21udC9ucmRzdG9yL3JpY2hsYWIvc2hhcmVkL2RvcmFkb19tb2RlbHM6L21vZGVscywvbW50L25yZHN0b3IvcmljaGxhYi9zaGFyZWQvZGF0YWJhc2VzOi9yZWZkYg==', '', '--shared-fs-usage source-cache software-deployment input-output sources persistence storage-local-copies', '', "--wrapper-prefix 'https://github.com/snakemake/snakemake-wrappers/raw/'", '', '', '', '--printshellcmds ', '', '--latency-wait 60', "--scheduler 'ilp'", '', '--local-storage-prefix base64//LnNuYWtlbWFrZS9zdG9yYWdl', "--scheduler-solver-path '/mnt/nrdstor/richlab/aliciarich/snakemake/bin'", '', '', '', '', '', '', '--default-resources base64//bWVtX21iPTgwMDA= base64//ZGlza19tYj1tYXgoMippbnB1dC5zaXplX21iLCAxMDAwKSBpZiBpbnB1dCBlbHNlIDUwMDAw base64//dG1wZGlyPXN5c3RlbV90bXBkaXI= base64//cnVudGltZT02MA== base64//cGFydGl0aW9uPWJhdGNo base64//YWNjb3VudD1yaWNobGFi base64//ZXh0cmE9IiI=', '']
+sbatch call: sbatch --parsable --job-name 3387e1db-5fee-4087-984d-1e7afb047c8c --output "/mnt/nrdstor/richlab/shared/nanomb/.snakemake/slurm_logs/rule_racon_round1/%j.log" --export=ALL --comment "rule_racon_round1"   -p batch -t 120 --mem 16000 --ntasks=1 --cpus-per-task=16 -D '/mnt/nrdstor/richlab/shared/nanomb' --wrap="/mnt/nrdstor/richlab/aliciarich/snakemake/bin/python3.12 -m snakemake --snakefile '/mnt/nrdstor/richlab/shared/nanomb/Snakefile' --target-jobs 'racon_round1:' --allowed-rules racon_round1 --cores 'all' --attempt 2 --force-use-threads  --wait-for-files '/mnt/nrdstor/richlab/shared/nanomb/.snakemake/tmp.8ngibtkv' '/work/richlab/aliciarich/datasets/16s/loris/culi/tmp/polished/all_reads.fastq' '/work/richlab/aliciarich/datasets/16s/loris/culi/tmp/polished/map_r0.bam' '/work/richlab/aliciarich/datasets/16s/loris/culi/otu/otus_centroids_99.fasta' --force --target-files-omit-workdir-adjustment --max-inventory-time 0 --nocolor --notemp --no-hooks --nolock --ignore-incomplete --verbose  --rerun-triggers input params software-env mtime code --deployment-method apptainer --conda-frontend 'conda' --apptainer-prefix '/mnt/nrdstor/richlab/aliciarich/.apptainer' --apptainer-args base64//LS1udiAtLWJpbmQgL3dvcmssL2x1c3RyZSwvbW50L25yZHN0b3IsL2hvbWUsL21udC9ucmRzdG9yL3JpY2hsYWIvc2hhcmVkL2RvcmFkb19tb2RlbHM6L21vZGVscywvbW50L25yZHN0b3IvcmljaGxhYi9zaGFyZWQvZGF0YWJhc2VzOi9yZWZkYg== --shared-fs-usage source-cache software-deployment input-output sources persistence storage-local-copies --wrapper-prefix 'https://github.com/snakemake/snakemake-wrappers/raw/' --printshellcmds  --latency-wait 60 --scheduler 'ilp' --local-storage-prefix base64//LnNuYWtlbWFrZS9zdG9yYWdl --scheduler-solver-path '/mnt/nrdstor/richlab/aliciarich/snakemake/bin' --default-resources base64//bWVtX21iPTgwMDA= base64//ZGlza19tYj1tYXgoMippbnB1dC5zaXplX21iLCAxMDAwKSBpZiBpbnB1dCBlbHNlIDUwMDAw base64//dG1wZGlyPXN5c3RlbV90bXBkaXI= base64//cnVudGltZT02MA== base64//cGFydGl0aW9uPWJhdGNo base64//YWNjb3VudD1yaWNobGFi base64//ZXh0cmE9IiI= --executor slurm-jobstep --jobs 1 --mode 'remote'"
+Job 31 has been submitted with SLURM jobid 12421727 (log: /mnt/nrdstor/richlab/shared/nanomb/.snakemake/slurm_logs/rule_racon_round1/12421727.log).
+Waiting for running jobs to complete.
+Checking the status of 1 active jobs with 5 attempts.
+The job status was queried with command: sacct -X --parsable2 --clusters all --noheader --format=JobIdRaw,State --starttime 2025-10-06T12:00 --endtime now --name 3387e1db-5fee-4087-984d-1e7afb047c8c
+It took: 0.01643061637878418 seconds
+The output is:
+'12421650|FAILED
+12421727|RUNNING
+'
+
+status_of_jobs after sacct is: {'12421650': 'FAILED', '12421727': 'RUNNING'}
+active_jobs_ids_with_current_sacct_status are: {'12421727'}
+active_jobs_seen_by_sacct are: {'12421727'}
+missing_sacct_status are: set()
+Checking the status of 1 active jobs with 5 attempts.
+The job status was queried with command: sacct -X --parsable2 --clusters all --noheader --format=JobIdRaw,State --starttime 2025-10-06T12:00 --endtime now --name 3387e1db-5fee-4087-984d-1e7afb047c8c
+It took: 0.01598811149597168 seconds
+The output is:
+'12421650|FAILED
+12421727|RUNNING
+'
+
+status_of_jobs after sacct is: {'12421650': 'FAILED', '12421727': 'RUNNING'}
+active_jobs_ids_with_current_sacct_status are: {'12421727'}
+active_jobs_seen_by_sacct are: {'12421727'}
+missing_sacct_status are: set()
+Checking the status of 1 active jobs with 5 attempts.
+The job status was queried with command: sacct -X --parsable2 --clusters all --noheader --format=JobIdRaw,State --starttime 2025-10-06T12:00 --endtime now --name 3387e1db-5fee-4087-984d-1e7afb047c8c
+It took: 0.016414403915405273 seconds
+The output is:
+'12421650|FAILED
+12421727|RUNNING
+'
+
+status_of_jobs after sacct is: {'12421650': 'FAILED', '12421727': 'RUNNING'}
+active_jobs_ids_with_current_sacct_status are: {'12421727'}
+active_jobs_seen_by_sacct are: {'12421727'}
+missing_sacct_status are: set()
+Checking the status of 1 active jobs with 5 attempts.
+The job status was queried with command: sacct -X --parsable2 --clusters all --noheader --format=JobIdRaw,State --starttime 2025-10-06T12:00 --endtime now --name 3387e1db-5fee-4087-984d-1e7afb047c8c
+It took: 0.016486644744873047 seconds
+The output is:
+'12421650|FAILED
+12421727|RUNNING
+'
+
+status_of_jobs after sacct is: {'12421650': 'FAILED', '12421727': 'RUNNING'}
+active_jobs_ids_with_current_sacct_status are: {'12421727'}
+active_jobs_seen_by_sacct are: {'12421727'}
+missing_sacct_status are: set()
+Checking the status of 1 active jobs with 5 attempts.
+The job status was queried with command: sacct -X --parsable2 --clusters all --noheader --format=JobIdRaw,State --starttime 2025-10-06T12:00 --endtime now --name 3387e1db-5fee-4087-984d-1e7afb047c8c
+It took: 0.01640462875366211 seconds
+The output is:
+'12421650|FAILED
+12421727|RUNNING
+'
+
+status_of_jobs after sacct is: {'12421650': 'FAILED', '12421727': 'RUNNING'}
+active_jobs_ids_with_current_sacct_status are: {'12421727'}
+active_jobs_seen_by_sacct are: {'12421727'}
+missing_sacct_status are: set()

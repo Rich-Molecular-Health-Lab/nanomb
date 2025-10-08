@@ -1,0 +1,33 @@
+== Versions ==
+samtools 1.22.1
+1.5.0
+reads: /work/richlab/aliciarich/datasets/16s/loris/culi/tmp/polished/all_reads.fastq
+bam:   /work/richlab/aliciarich/datasets/16s/loris/culi/tmp/polished/map_r0.bam
+refs:  /work/richlab/aliciarich/datasets/16s/loris/culi/otu/otus_centroids_99.fasta
+threads: 16
+[racon::Polisher::initialize] loaded target sequences 0.001524 s
+[racon::Polisher::initialize] loaded sequences 18.142582 s
+[racon::Polisher::initialize] loaded overlaps 17.000058 s
+[racon::Polisher::initialize] aligning overlaps [=>                  ] 8.836384 s
+[racon::Polisher::initialize] aligning overlaps [==>                 ] 8.838628 s
+[racon::Polisher::initialize] aligning overlaps [===>                ] 8.840917 s
+[racon::Polisher::initialize] aligning overlaps [====>               ] 8.843134 s
+[racon::Polisher::initialize] aligning overlaps [=====>              ] 8.845257 s
+[racon::Polisher::initialize] aligning overlaps [======>             ] 8.847479 s
+[racon::Polisher::initialize] aligning overlaps [=======>            ] 8.849712 s
+[racon::Polisher::initialize] aligning overlaps [========>           ] 8.852021 s
+[racon::Polisher::initialize] aligning overlaps [=========>          ] 8.854259 s
+[racon::Polisher::initialize] aligning overlaps [==========>         ] 8.856487 s
+[racon::Polisher::initialize] aligning overlaps [===========>        ] 8.858797 s
+[racon::Polisher::initialize] aligning overlaps [============>       ] 8.861059 s
+[racon::Polisher::initialize] aligning overlaps [=============>      ] 8.863311 s
+[racon::Polisher::initialize] aligning overlaps [==============>     ] 8.865657 s
+[racon::Polisher::initialize] aligning overlaps [===============>    ] 8.867922 s
+[racon::Polisher::initialize] aligning overlaps [================>   ] 8.870172 s
+[racon::Polisher::initialize] aligning overlaps [=================>  ] 8.872393 s
+[racon::Polisher::initialize] aligning overlaps [==================> ] 8.874656 s
+[racon::Polisher::initialize] aligning overlaps [===================>] 8.877007 s
+[racon::Polisher::initialize] aligning overlaps [====================] 8.879277 s
+[racon::Polisher::initialize] transformed data into windows 8.110788 s
+[racon::Polisher::polish] generating consensus [=>                  ] 294.539959 s
+/usr/bin/bash: line 18: 487127 Killed                  racon -t 16 "/work/richlab/aliciarich/datasets/16s/loris/culi/tmp/polished/all_reads.fastq" "$tmp_sam" "/work/richlab/aliciarich/datasets/16s/loris/culi/otu/otus_centroids_99.fasta" > "/work/richlab/aliciarich/datasets/16s/loris/culi/tmp/polished/r1.fasta"

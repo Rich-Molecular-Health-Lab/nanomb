@@ -15,6 +15,10 @@ NRDSTOR = os.environ.get("NRDSTOR", os.environ.get("NRDSTOR_LOCAL", ""))
 
 def _expand(v):  return os.path.expandvars(v) if isinstance(v, str) else v
 
+# --- helper to escape braces so Snakemake doesn't try to format run ---
+def esc_braces(s):
+    return s.replace("{", "{{").replace("}", "}}") if isinstance(s, str) else s
+
 def _require_abs_resolved(p, name):
     if not p or "$" in p:
         raise WorkflowError(f"{name} is unset or contains an unresolved '$': got {p!r}. Did you export {name}?")
@@ -23,8 +27,6 @@ def _require_abs_resolved(p, name):
         p = os.path.join(PROJ, p)
     return p
   
-def R(rule, key, default): return config.get("resources", {}).get(rule, {}).get(key, default)
-
 def fmt_template(s, **vals):
     if not isinstance(s, str): return s
     s = os.path.expandvars(s)
@@ -36,10 +38,20 @@ def resolve_path(base, path_template, **vals):
     if not p: return ""
     return p if os.path.isabs(p) else os.path.join(base, p)
   
-# --- helper to escape braces so Snakemake doesn't try to format run ---
-def esc_braces(s):
-    return s.replace("{", "{{").replace("}", "}}") if isinstance(s, str) else s
+from snakemake.exceptions import WorkflowError
 
+def Rq(rule, key):
+    """Required resource getter: error if missing in config."""
+    try:
+        return config["resources"][rule][key]
+    except KeyError:
+        raise WorkflowError(f"Missing config.resources['{rule}']['{key}']")
+
+def R(rule, key, default=""):
+    """Optional resource getter with empty-string default (e.g. for 'extra')."""
+    return config.get("resources", {}).get(rule, {}).get(key, default)
+
+  
 # --- dataset & layout ---
 SAMPLESET = _expand(config.get("sampleset", "")).strip()
 DATASET   = _expand(config.get("dataset", "")).strip()
@@ -264,9 +276,13 @@ rule dorado_basecall:
     output:
         basecalled = directory(BASECALL_DIR_T),
         summaries  = directory(os.path.join(SUMMARY_DIR_T, "basecall"))
-    threads: 8
+    threads: Rq("dorado_basecall", "threads")
     resources:
-        mem_mb=32000, runtime=180, partition="gpu", account="richlab", extra="--gres=gpu:1"
+        mem_mb   = Rq("dorado_basecall", "mem_mb"), 
+        runtime  = Rq("dorado_basecall", "runtime"),
+        partition= Rq("dorado_basecall", "partition"),
+        account  = Rq("dorado_basecall", "account"),
+        extra    =  R("dorado_basecall", "extra") 
     params:
         modelname = lambda wc: config.get("dorado_model_name","sup"),
         modelsdir = lambda wc: _expand(config.get("dorado_models_dir","/models")),
@@ -291,9 +307,13 @@ rule dorado_demux:
     output:
         demuxed   = directory(DEMUX_DIR_T),
         summaries = directory(os.path.join(SUMMARY_DIR_T, "demux")),
-    threads: 8
+    threads: Rq("dorado_demux", "threads")
     resources:
-        mem_mb=32000, runtime=90, partition="gpu", account="richlab", extra="--gres=gpu:1"
+        mem_mb   = Rq("dorado_demux", "mem_mb"), 
+        runtime  = Rq("dorado_demux", "runtime"),
+        partition= Rq("dorado_demux", "partition"),
+        account  = Rq("dorado_demux", "account"),
+        extra    =  R("dorado_demux", "extra") 
     params:
         sheet_pat  = lambda wc: esc_braces((_expand(config.get("sample_sheet_pattern","")) or "").replace("{run}", "___RUN___")),
         sheet_name = lambda wc: esc_braces(SHEET_NAME.replace("{run}", "___RUN___")),
@@ -375,9 +395,13 @@ def bam_for_sample_run(wc):
 rule dorado_trim_sample:
     input: bam = bam_for_sample_run          
     output: fastq = os.path.join(RAW_DIR_T, "{sample}.fastq")   
-    threads: R("dorado_trim","threads",8)
+    threads: Rq("dorado_trim", "threads")
     resources:
-        mem_mb=32000, runtime=90, partition="gpu", account="richlab", extra="--gres=gpu:1"
+        mem_mb   = Rq("dorado_trim", "mem_mb"), 
+        runtime  = Rq("dorado_trim", "runtime"),
+        partition= Rq("dorado_trim", "partition"),
+        account  = Rq("dorado_trim", "account"),
+        extra    =  R("dorado_trim", "extra") 
     params:
         kit    = lambda wc: config.get("barcode_kit",""),
         emitfq = lambda wc: str(config.get("trim_emit_fastq", True)).lower(),
@@ -427,12 +451,13 @@ def all_raw_fastq_glob():
 rule fastcat_filter:
     input: all_raw_fastq_glob()
     output: fastq = directory(os.path.join(TMP, "filtered"))
-    threads: R("fastcat_filter", "threads", 4)
+    threads: Rq("fastcat_filter", "threads")
     resources:
-        mem_mb = R("fastcat_filter", "mem_mb", 8000),
-        runtime = R("fastcat_filter", "runtime", 60),
-        partition = R("fastcat_filter", "partition", "guest"),
-        account = R("fastcat_filter", "account", "richlab")
+        mem_mb   = Rq("fastcat_filter", "mem_mb"), 
+        runtime  = Rq("fastcat_filter", "runtime"),
+        partition= Rq("fastcat_filter", "partition"),
+        account  = Rq("fastcat_filter", "account"),
+        extra    =  R("fastcat_filter", "extra") 
     params:
         outdir_base = OUT,
         min_q   = lambda wc: config["min_qscore"],
@@ -469,13 +494,13 @@ rule fastcat_filter:
 rule nanoplot_qc:
     input: rules.fastcat_filter.output.fastq
     output: directory(os.path.join(OUT, "qc/nanoplot"))
-    threads: R("nanoplot_qc", "threads", 2)
+    threads: Rq("nanoplot_qc", "threads")
     resources:
-        mem_mb = R("nanoplot_qc", "mem_mb", 4000),
-        runtime = R("nanoplot_qc", "runtime", 30),
-        partition = R("nanoplot_qc", "partition", "guest"),
-        account = R("nanoplot_qc", "account", "richlab")
-    log: os.path.join(OUT, "logs/nanoplot_qc.log")
+        mem_mb   = Rq("nanoplot_qc", "mem_mb"), 
+        runtime  = Rq("nanoplot_qc", "runtime"),
+        partition= Rq("nanoplot_qc", "partition"),
+        account  = Rq("nanoplot_qc", "account"),
+        extra    =  R("nanoplot_qc", "extra") 
     container: CONTAINERS["cpu"]
     shell: r"""
       set -euo pipefail
@@ -488,12 +513,13 @@ rule nanoplot_qc:
 rule isonclust3:
     input: rules.fastcat_filter.output.fastq
     output: directory(os.path.join(TMP, "OTUs"))
-    threads: R("isonclust3", "threads", THREADS)
+    threads: Rq("isonclust3", "threads")
     resources:
-        mem_mb   = R("isonclust3", "mem_mb", 32000),
-        runtime  = R("isonclust3", "runtime", 240),
-        partition= R("isonclust3", "partition", "batch"),
-        account  = R("isonclust3", "account", "richlab")
+        mem_mb   = Rq("isonclust3", "mem_mb"), 
+        runtime  = Rq("isonclust3", "runtime"),
+        partition= Rq("isonclust3", "partition"),
+        account  = Rq("isonclust3", "account"),
+        extra    =  R("isonclust3", "extra") 
     log: os.path.join(OUT, "logs/isonclust3.log")
     container: CONTAINERS["cpu"]
     shell: r"""
@@ -511,12 +537,13 @@ rule isonclust3:
 rule spoa_consensus:
     input: rules.isonclust3.output
     output: directory(os.path.join(TMP, "consensus_drafts"))
-    threads: R("spoa_consensus", "threads", 8)
+    threads: Rq("spoa_consensus", "threads")
     resources:
-        mem_mb   = R("spoa_consensus", "mem_mb", 16000),
-        runtime  = R("spoa_consensus", "runtime", 240),
-        partition= R("spoa_consensus", "partition", "batch"),
-        account  = R("spoa_consensus", "account", "richlab")
+        mem_mb   = Rq("spoa_consensus", "mem_mb"), 
+        runtime  = Rq("spoa_consensus", "runtime"),
+        partition= Rq("spoa_consensus", "partition"),
+        account  = Rq("spoa_consensus", "account"),
+        extra    =  R("spoa_consensus", "extra") 
     params:
         max_reads = int(config.get("spoa_max_reads", 500)),
         min_reads = int(config.get("spoa_min_reads", 3)),
@@ -533,7 +560,7 @@ rule spoa_consensus:
         n=$(awk 'END{{print NR/4}}' "$fq")
         if (( n < {params.min_reads} )); then continue; fi
         tmpd=$(mktemp -d)
-        tmpf="$tmpd/reads.fastq"   # ensure .fastq extension so spoa recognizes format
+        tmpf="$tmpd/reads.fastq"  
         if (( n > {params.max_reads} )); then
           awk -v m={params.max_reads} 'NR%4==1{{c++}} c<=m{{print}}' "$fq" > "$tmpf"
         else
@@ -550,12 +577,13 @@ rule vsearch_pool_cluster:
         drafts = os.path.join(TMP, "pooled/all_draft_otus.fasta"),
         cent99 = os.path.join(OUT, "otu/otus_centroids_99.fasta"),
         cent97 = os.path.join(OUT, "otu/otus_centroids_97.fasta")
-    threads: R("vsearch_pool_cluster", "threads", THREADS)
+    threads: Rq("vsearch_pool_cluster", "threads")
     resources:
-        mem_mb   = R("vsearch_pool_cluster", "mem_mb", 32000),
-        runtime  = R("vsearch_pool_cluster", "runtime", 300),
-        partition= R("vsearch_pool_cluster", "partition", "batch"),
-        account  = R("vsearch_pool_cluster", "account", "richlab")
+        mem_mb   = Rq("vsearch_pool_cluster", "mem_mb"), 
+        runtime  = Rq("vsearch_pool_cluster", "runtime"),
+        partition= Rq("vsearch_pool_cluster", "partition"),
+        account  = Rq("vsearch_pool_cluster", "account"),
+        extra    =  R("vsearch_pool_cluster", "extra") 
     log: os.path.join(OUT, "logs/vsearch_pool_cluster.log")
     container: CONTAINERS["cpu"]
     shell: r"""
@@ -578,12 +606,13 @@ rule map_all_reads:
     output:
         all_reads = os.path.join(TMP, "polished/all_reads.fastq"),
         bam       = os.path.join(TMP, "polished/map_r0.bam")
-    threads: R("map_all_reads", "threads", 16)
+    threads: Rq("map_all_reads", "threads")
     resources:
-        mem_mb   = R("map_all_reads", "mem_mb", 32000),
-        runtime  = R("map_all_reads", "runtime", 180),
-        partition= R("map_all_reads", "partition", "batch"),
-        account  = R("map_all_reads", "account", "richlab")
+        mem_mb   = Rq("map_all_reads", "mem_mb"), 
+        runtime  = Rq("map_all_reads", "runtime"),
+        partition= Rq("map_all_reads", "partition"),
+        account  = Rq("map_all_reads", "account"),
+        extra    =  R("map_all_reads", "extra") 
     log: os.path.join(OUT, "logs/map_all_reads.log")
     container: CONTAINERS["nanoalign"]
     shell: r"""
@@ -591,12 +620,10 @@ rule map_all_reads:
 
       mkdir -p "$(dirname {output.all_reads})" "$(dirname {output.bam})"
 
-      # Concatenate filtered reads for mapping
       : > "{output.all_reads}"
       find "{input.reads}" -maxdepth 1 -type f -name '*.fastq' -print0 \
         | xargs -0 cat >> "{output.all_reads}"
 
-      # Map and sort
       minimap2 -t {threads} -ax map-ont "{input.refs}" "{output.all_reads}" \
         | samtools sort -@ {threads} -m 2G -o "{output.bam}"
 
@@ -607,12 +634,13 @@ rule map_all_reads:
 rule racon_round1:
     input: reads = ALL_READS_FQ, bam = MAP_BAM_R0, refs = OTU_CENTROIDS_FASTA
     output: r1 = R1_FASTA
-    threads: R("racon_round1", "threads", 8)                    
+    threads: Rq("racon_round1", "threads")
     resources:
-        mem_mb   = R("racon_round1", "mem_mb", 64000),          
-        runtime  = R("racon_round1", "runtime", 720),           
-        partition= R("racon_round1", "partition", "batch"),
-        account  = R("racon_round1", "account", "richlab")
+        mem_mb   = Rq("racon_round1", "mem_mb"), 
+        runtime  = Rq("racon_round1", "runtime"),
+        partition= Rq("racon_round1", "partition"),
+        account  = Rq("racon_round1", "account"),
+        extra    =  R("racon_round1", "extra") 
     container: CONTAINERS["nanoalign"]
     shell: r"""
         set -euo pipefail
@@ -637,12 +665,13 @@ rule racon_round1:
 rule map_r1:
     input: reads = ALL_READS_FQ, r1 = R1_FASTA
     output: bam = MAP_BAM_R1
-    threads: R("map_r1", "threads", 8)              
+    threads: Rq("map_r1", "threads")
     resources:
-        mem_mb   = R("map_r1", "mem_mb", 16000),    
-        runtime  = R("map_r1", "runtime", 180),
-        partition= R("map_r1", "partition", "batch"),
-        account  = R("map_r1", "account", "richlab")
+        mem_mb   = Rq("map_r1", "mem_mb"), 
+        runtime  = Rq("map_r1", "runtime"),
+        partition= Rq("map_r1", "partition"),
+        account  = Rq("map_r1", "account"),
+        extra    =  R("map_r1", "extra") 
     container: CONTAINERS["nanoalign"]
     shell: r"""
       set -euo pipefail
@@ -656,12 +685,13 @@ rule map_r1:
 rule racon_round2:
     input: reads = ALL_READS_FQ, bam = MAP_BAM_R1, r1 = R1_FASTA
     output: r2 = R2_FASTA
-    threads: R("racon_round2", "threads", 8)                    
+    threads: Rq("racon_round2", "threads")
     resources:
-        mem_mb   = R("racon_round2", "mem_mb", 64000),         
-        runtime  = R("racon_round2", "runtime", 720),
-        partition= R("racon_round2", "partition", "batch"),
-        account  = R("racon_round2", "account", "richlab")
+        mem_mb   = Rq("racon_round2", "mem_mb"), 
+        runtime  = Rq("racon_round2", "runtime"),
+        partition= Rq("racon_round2", "partition"),
+        account  = Rq("racon_round2", "account"),
+        extra    =  R("racon_round2", "extra") 
     container: CONTAINERS["nanoalign"]
     shell: r"""
         set -euo pipefail
@@ -680,14 +710,13 @@ rule medaka_polish:
         draft = R2_FASTA
     output:
         polished = POLISHED
-    threads:
-        R("medaka_polish", "threads", 8)  
+    threads: Rq("medaka_polish", "threads")
     resources:
-        mem_mb    = R("medaka_polish", "mem_mb", 16000),
-        runtime   = R("medaka_polish", "runtime", 360),  
-        partition = R("medaka_polish", "partition", "gpu"),
-        account   = R("medaka_polish", "account", "richlab"),
-        extra     = R("medaka_polish", "extra", "--gres=gpu:1")
+        mem_mb   = Rq("medaka_polish", "mem_mb"), 
+        runtime  = Rq("medaka_polish", "runtime"),
+        partition= Rq("medaka_polish", "partition"),
+        account  = Rq("medaka_polish", "account"),
+        extra    =  R("medaka_polish", "extra") 
     params:
         medaka_model = lambda wc: config["medaka_model"]
     container:
@@ -716,12 +745,13 @@ rule chimera_taxonomy_tree:
         chimera = os.path.join(OUT, "otu/otus_chimeras.fasta"),
         sintax  = os.path.join(OUT, "otu/otus_taxonomy.sintax"),
         msa     = os.path.join(OUT, "otu/otu_references_aligned.fasta")
-    threads: R("chimera_taxonomy_tree", "threads", THREADS)
+    threads: Rq("chimera_taxonomy_tree", "threads")
     resources:
-        mem_mb   = R("chimera_taxonomy_tree", "mem_mb", 32000),
-        runtime  = R("chimera_taxonomy_tree", "runtime", 240),
-        partition= R("chimera_taxonomy_tree", "partition", "batch"),
-        account  = R("chimera_taxonomy_tree", "account", "richlab")
+        mem_mb   = Rq("chimera_taxonomy_tree", "mem_mb"), 
+        runtime  = Rq("chimera_taxonomy_tree", "runtime"),
+        partition= Rq("chimera_taxonomy_tree", "partition"),
+        account  = Rq("chimera_taxonomy_tree", "account"),
+        extra    =  R("chimera_taxonomy_tree", "extra") 
     log: os.path.join(OUT, "logs/chimera_taxonomy_tree.log")
     container: CONTAINERS["cpu"]
     shell: r"""
@@ -735,12 +765,13 @@ rule chimera_taxonomy_tree:
 rule iqtree2_tree:
     input: msa = rules.chimera_taxonomy_tree.output.msa
     output: tree = os.path.join(OUT, "otu/otu_tree.treefile")
-    threads: R("iqtree2_tree", "threads", THREADS)
+    threads: Rq("iqtree2_tree", "threads")
     resources:
-        mem_mb   = R("iqtree2_tree", "mem_mb", 64000),
-        runtime  = R("iqtree2_tree", "runtime", 720),
-        partition= R("iqtree2_tree", "partition", "batch"),
-        account  = R("iqtree2_tree", "account", "richlab")
+        mem_mb   = Rq("iqtree2_tree", "mem_mb"), 
+        runtime  = Rq("iqtree2_tree", "runtime"),
+        partition= Rq("iqtree2_tree", "partition"),
+        account  = Rq("iqtree2_tree", "account"),
+        extra    =  R("iqtree2_tree", "extra") 
     log: os.path.join(OUT, "logs/iqtree2_tree.log")
     container: CONTAINERS["iqtree2"] or CONTAINERS["cpu"]
     shell: r"""
@@ -752,12 +783,13 @@ rule iqtree2_tree:
 rule otu_table_per_sample:
     input: refs = rules.chimera_taxonomy_tree.output.nonchim, reads = rules.fastcat_filter.output.fastq
     output: merged = os.path.join(OUT, "otu/otu_table_merged.tsv")
-    threads: R("otu_table_per_sample", "threads", THREADS)
+    threads: Rq("otu_table_per_sample", "threads")
     resources:
-        mem_mb   = R("otu_table_per_sample", "mem_mb", 16000),
-        runtime  = R("otu_table_per_sample", "runtime", 180),
-        partition= R("otu_table_per_sample", "partition", "batch"),
-        account  = R("otu_table_per_sample", "account", "richlab")
+        mem_mb   = Rq("otu_table_per_sample", "mem_mb"), 
+        runtime  = Rq("otu_table_per_sample", "runtime"),
+        partition= Rq("otu_table_per_sample", "partition"),
+        account  = Rq("otu_table_per_sample", "account"),
+        extra    =  R("otu_table_per_sample", "extra") 
     log: os.path.join(OUT, "logs/otu_table_per_sample.log")
     container: CONTAINERS["cpu"]
     shell: r"""
@@ -788,12 +820,13 @@ rule otu_table_per_sample:
 rule asv_nanoasv:
     input: rules.fastcat_filter.output.fastq
     output: os.path.join(OUT, "asv/nanoasv/phyloseq.RData")
-    threads: R("asv_nanoasv", "threads", THREADS)
+    threads: Rq("asv_nanoasv", "threads")
     resources:
-        mem_mb   = R("asv_nanoasv", "mem_mb", 32000),
-        runtime  = R("asv_nanoasv", "runtime", 360),
-        partition= R("asv_nanoasv", "partition", "batch"),
-        account  = R("asv_nanoasv", "account", "richlab")
+        mem_mb   = Rq("asv_nanoasv", "mem_mb"), 
+        runtime  = Rq("asv_nanoasv", "runtime"),
+        partition= Rq("asv_nanoasv", "partition"),
+        account  = Rq("asv_nanoasv", "account"),
+        extra    =  R("asv_nanoasv", "extra") 
     log: os.path.join(OUT, "logs/asv_nanoasv.log")
     container: CONTAINERS["nanoasv"]
     run:
