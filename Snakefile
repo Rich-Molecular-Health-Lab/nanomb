@@ -95,6 +95,7 @@ CONTAINERS = {
     "cpu":     _expand(config.get("container_cpu",     "/mnt/nrdstor/richlab/shared/containers/nanomb.sif")),
     "gpu":     _expand(config.get("container_gpu",     "/mnt/nrdstor/richlab/shared/containers/nanombgpu.sif")),
     "nanoasv": _expand(config.get("container_nanoasv", "/mnt/nrdstor/richlab/shared/containers/nanoasv.sif")),
+    "nanoalign": _expand(config.get("container_nanoalign", "/mnt/nrdstor/richlab/shared/containers/nanoalign.sif")),
     "dorado":  _expand(config.get("container_dorado",  "/mnt/nrdstor/richlab/shared/containers/dorado.sif")),
     "iqtree2": _expand(config.get("container_iqtree2", "")),
 }
@@ -133,12 +134,13 @@ MIN_UNIQUE = int(config.get("min_unique_size", 1))
 
 # Polishing paths
 POLISH_DIR   = os.path.join(TMP, "polished")
-ALL_READS_FQ = os.path.join(POLISH_DIR, "all_reads.fastq")
-MAP_BAM_99   = os.path.join(POLISH_DIR, "map_r0.bam")
-R1_FASTA     = os.path.join(POLISH_DIR, "r1.fasta")
-MAP_BAM_R1   = os.path.join(POLISH_DIR, "map_r1.bam")
-R2_FASTA     = os.path.join(POLISH_DIR, "r2.fasta")
 POLISHED     = os.path.join(POLISH_DIR, "polished_otus.fasta")
+OTU_CENTROIDS_FASTA  = os.path.join(OUT, "otu/otus_centroids_99.fasta")
+ALL_READS_FQ = os.path.join(POLISH_DIR, "all_reads.fastq")
+MAP_BAM_R0   = os.path.join(POLISH_DIR, "map_r0.bam")
+MAP_BAM_R1   = os.path.join(POLISH_DIR, "map_r1.bam")
+R1_FASTA     = os.path.join(POLISH_DIR, "r1.fasta")
+R2_FASTA     = os.path.join(POLISH_DIR, "r2.fasta")
 
 # ---- runs: discover or use config ----
 def discover_runs():
@@ -583,85 +585,130 @@ rule map_all_reads:
         partition= R("map_all_reads", "partition", "batch"),
         account  = R("map_all_reads", "account", "richlab")
     log: os.path.join(OUT, "logs/map_all_reads.log")
-    container: None
+    container: CONTAINERS["nanoalign"]
     shell: r"""
       set -euo pipefail
-      module load minimap2 samtools || true
 
       mkdir -p "$(dirname {output.all_reads})" "$(dirname {output.bam})"
 
+      # Concatenate filtered reads for mapping
       : > "{output.all_reads}"
       find "{input.reads}" -maxdepth 1 -type f -name '*.fastq' -print0 \
         | xargs -0 cat >> "{output.all_reads}"
 
+      # Map and sort
       minimap2 -t {threads} -ax map-ont "{input.refs}" "{output.all_reads}" \
         | samtools sort -@ {threads} -m 2G -o "{output.bam}"
 
       samtools index "{output.bam}"
     """
     
+# racon_round1
 rule racon_round1:
-    input: reads = ALL_READS_FQ, bam = MAP_BAM_99, ref = os.path.join(OUT, "otu/otus_centroids_99.fasta")
+    input: reads = ALL_READS_FQ, bam = MAP_BAM_R0, refs = OTU_CENTROIDS_FASTA
     output: r1 = R1_FASTA
-    threads: R("racon_round1", "threads", THREADS)
+    threads: R("racon_round1", "threads", 8)                    
     resources:
-        mem_mb   = R("racon_round1", "mem_mb", 16000),
-        runtime  = R("racon_round1", "runtime", 120),
+        mem_mb   = R("racon_round1", "mem_mb", 64000),          
+        runtime  = R("racon_round1", "runtime", 720),           
         partition= R("racon_round1", "partition", "batch"),
         account  = R("racon_round1", "account", "richlab")
-    container: CONTAINERS["cpu"]
-    shell: r""" set -euo pipefail; racon -t {threads} {input.reads} {input.bam} {input.ref} > {output.r1} """
+    container: CONTAINERS["nanoalign"]
+    shell: r"""
+        set -euo pipefail
+        echo "== Versions ==" >&2
+        samtools --version | head -n1 >&2 || true
+        racon --version >&2 || true
+        echo "reads: {input.reads}" >&2
+        echo "bam:   {input.bam}"   >&2
+        echo "refs:  {input.refs}"  >&2
+        echo "threads: {threads}"   >&2
 
+        tmp_sam=$(mktemp --suffix=.sam)
+        trap 'rm -f "$tmp_sam"' EXIT
+
+        samtools view -@ {threads} -h "{input.bam}" -o "$tmp_sam"
+
+        racon -t {threads} "{input.reads}" "$tmp_sam" "{input.refs}" > "{output.r1}"
+
+        test -s "{output.r1}" && grep -q "^>" "{output.r1}"
+    """
+    
 rule map_r1:
     input: reads = ALL_READS_FQ, r1 = R1_FASTA
     output: bam = MAP_BAM_R1
-    threads: R("map_r1", "threads", THREADS)
+    threads: R("map_r1", "threads", 8)              
     resources:
-        mem_mb   = R("map_r1", "mem_mb", 16000),
+        mem_mb   = R("map_r1", "mem_mb", 16000),    
         runtime  = R("map_r1", "runtime", 180),
         partition= R("map_r1", "partition", "batch"),
         account  = R("map_r1", "account", "richlab")
-    container: CONTAINERS["cpu"]
+    container: CONTAINERS["nanoalign"]
     shell: r"""
       set -euo pipefail
-      minimap2 -t {threads} -ax map-ont {input.r1} {input.reads} | samtools sort -@ {threads} -o {output.bam}
-      samtools index {output.bam}
+      tmpdir="${TMPDIR:-/tmp}"
+      minimap2 -t {threads} -ax map-ont "{input.r1}" "{input.reads}" \
+        | samtools sort -@ {threads} -m 1G -T "$tmpdir/map_r1" -o "{output.bam}"
+      samtools index -@ {threads} "{output.bam}"
     """
-
+    
+# racon_round2
 rule racon_round2:
     input: reads = ALL_READS_FQ, bam = MAP_BAM_R1, r1 = R1_FASTA
     output: r2 = R2_FASTA
-    threads: R("racon_round2", "threads", THREADS)
+    threads: R("racon_round2", "threads", 8)                    
     resources:
-        mem_mb   = R("racon_round2", "mem_mb", 16000),
-        runtime  = R("racon_round2", "runtime", 120),
+        mem_mb   = R("racon_round2", "mem_mb", 64000),         
+        runtime  = R("racon_round2", "runtime", 720),
         partition= R("racon_round2", "partition", "batch"),
         account  = R("racon_round2", "account", "richlab")
-    container: CONTAINERS["cpu"]
-    shell: r""" set -euo pipefail; racon -t {threads} {input.reads} {input.bam} {input.r1} > {output.r2} """
+    container: CONTAINERS["nanoalign"]
+    shell: r"""
+        set -euo pipefail
+        tmp_sam=$(mktemp --suffix=.sam)
+        trap 'rm -f "$tmp_sam"' EXIT
 
+        samtools view -@ {threads} -h "{input.bam}" -o "$tmp_sam"
+        racon -t {threads} "{input.reads}" "$tmp_sam" "{input.r1}" > "{output.r2}"
+
+        test -s "{output.r2}" && grep -q "^>" "{output.r2}"
+    """
+    
 rule medaka_polish:
-    input: reads = ALL_READS_FQ, draft = R2_FASTA
-    output: polished = POLISHED
-    threads: R("medaka_polish", "threads", THREADS)
+    input:
+        reads = ALL_READS_FQ,
+        draft = R2_FASTA
+    output:
+        polished = POLISHED
+    threads:
+        R("medaka_polish", "threads", 8)  
     resources:
-        mem_mb   = R("medaka_polish", "mem_mb", 16000),
-        runtime  = R("medaka_polish", "runtime", 240),
-        partition= R("medaka_polish", "partition", "gpu"),
-        account  = R("medaka_polish", "account", "richlab"),
-        extra    = R("medaka_polish", "extra", "--gres=gpu:1")
+        mem_mb    = R("medaka_polish", "mem_mb", 16000),
+        runtime   = R("medaka_polish", "runtime", 360),  
+        partition = R("medaka_polish", "partition", "gpu"),
+        account   = R("medaka_polish", "account", "richlab"),
+        extra     = R("medaka_polish", "extra", "--gres=gpu:1")
     params:
         medaka_model = lambda wc: config["medaka_model"]
-    container: CONTAINERS["gpu"]
-    shell: r"""
-      set -euo pipefail
-      mkdir -p {POLISH_DIR}/medaka_refined
-      medaka_consensus -i {input.reads} -d {input.draft} \
-                       -o {POLISH_DIR}/medaka_refined \
-                       -m {params.medaka_model} --bacteria
-      cp {POLISH_DIR}/medaka_refined/consensus.fasta {output.polished}
-    """
+    container:
+        CONTAINERS["gpu"]
+    shell:
+        r"""
+        set -euo pipefail
+        export OMP_NUM_THREADS=1
+        mkdir -p "{POLISH_DIR}/medaka_refined"
 
+        medaka_consensus \
+          -i "{input.reads}" \
+          -d "{input.draft}" \
+          -o "{POLISH_DIR}/medaka_refined" \
+          -m "{params.medaka_model}" \
+          -t {threads} \
+          --bacteria
+
+        cp "{POLISH_DIR}/medaka_refined/consensus.fasta" "{output.polished}"
+        """
+        
 rule chimera_taxonomy_tree:
     input: fasta = POLISHED, db = ITGDB_UDB
     output:

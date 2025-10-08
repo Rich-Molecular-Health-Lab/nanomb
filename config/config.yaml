@@ -45,6 +45,7 @@ layout:
 # --- Containers ---
 container_cpu:     "/mnt/nrdstor/richlab/shared/containers/nanomb.sif"
 container_gpu:     "/mnt/nrdstor/richlab/shared/containers/nanombgpu.sif"
+container_nanoalign: "/mnt/nrdstor/richlab/shared/containers/nanoalign.sif"
 container_nanoasv: "/mnt/nrdstor/richlab/shared/containers/nanoasv.sif"
 container_dorado:  "/mnt/nrdstor/richlab/shared/containers/dorado.sif"
 container_iqtree2: ""  # if empty, CPU image is used

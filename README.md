@@ -1,30 +1,116 @@
 # <img src="graphics/logo.png" style="width:70px;align-content:center"> nanoMB: Oxford Nanopore 16S Pipeline
 
-This workflow processes full-length Oxford Nanopore 16S amplicon reads from raw POD5 files
-through demultiplexing, consensus polishing, and taxonomic assignment.
-It is optimized for the Swan HPC environment and runs entirely from Apptainer containers.
+This workflow processes full-length Oxford Nanopore 16S amplicon reads — from raw POD5 files to polished, taxonomically annotated OTUs — using containerized tools optimized for the Swan HPC.
+Execution runs entirely under Apptainer, ensuring consistent environments across GPU and CPU stages.
 
 ---
 
 ## 🧭 Overview
 
-### Workflow summary
-| Stage | Tool | Container | Notes |
-|-------|------|------------|-------|
-| Basecalling | **Dorado** | `docker:nanoporetech/dorado:latest` | GPU-based; uses ONT R10.4.1 SUP model |
-| Demultiplexing | **Dorado demux** | `docker:nanoporetech/dorado:latest` | Uses sample sheets under `samples/` |
-| Trimming | **Dorado trim** | `docker:nanoporetech/dorado:latest` | Generates per-sample FASTQs |
-| QC / Filtering | **Fastcat**, **NanoPlot** | `docker:aliciamrich/nanomb` | Length & Q-score filters, QC plots |
-| Clustering | **isONclust3** | `docker:aliciamrich/nanomb` | ONT-specific clustering of reads |
-| Consensus | **SPOA** | `docker:aliciamrich/nanomb` | Builds per-cluster consensus sequences |
-| Pooling / OTUs | **VSEARCH** | `docker:aliciamrich/nanomb` | Dereplication & clustering at 99 %/97 % |
-| Polishing | **Racon ×2**, **Medaka** | `docker:aliciamrich/nanombgpu` | GPU polish to high-accuracy OTUs |
-| Taxonomy / Tree | **VSEARCH SINTAX**, **MAFFT**, **IQ-TREE 2** | `docker:aliciamrich/nanomb` | Classify OTUs and infer phylogeny |
-| ASV option | **nanoASV** | `docker:aliciamrich/nanoasv` | *Third-party workflow disabled by default for ONT kits* |
+### 🧬 Pipeline Architecture
+
+                 ┌──────────────────────────────────────────────────┐
+                 │                RAW INPUT (ONT)                   │
+                 │     POD5 files + sample sheet (per run)          │
+                 └──────────────────────────────────────────────────┘
+                                       │
+                                       ▼
+                        ┌────────────────────────────┐
+                        │   GPU CONTAINER: DORADO    │
+                        │  nanoporetech/dorado:latest│
+                        │----------------------------│
+                        │ • Basecalling (sup model)  │
+                        │ • Demultiplexing           │
+                        │ • Adapter trimming         │
+                        └────────────┬───────────────┘
+                                     │
+                                     ▼
+                    ┌────────────────────────────────────┐
+                    │ CPU CONTAINER: NANOMB              │
+                    │ aliciamrich/nanomb:cpu             │
+                    │------------------------------------│
+                    │ • Fastcat filtering (Q / length)   │
+                    │ • NanoPlot QC summaries            │
+                    │ • isONclust3 clustering            │
+                    │ • SPOA consensus per cluster       │
+                    │ • VSEARCH dereplication (99/97%)   │
+                    └────────────────┬───────────────────┘
+                                     │
+                                     ▼
+                   ┌─────────────────────────────────────┐
+                   │ CPU CONTAINER: NANOALIGN            │
+                   │ aliciamrich/nanoalign:cpu           │
+                   │-------------------------------------│
+                   │ • Minimap2 mapping (map_r0 / r1)    │
+                   │ • Samtools BAM→SAM conversion        │
+                   │ • Racon ×2 polishing (CPU)          │
+                   └────────────────┬────────────────────┘
+                                    │
+                                    ▼
+                     ┌────────────────────────────────┐
+                     │ GPU CONTAINER: NANOMBGPU       │
+                     │ aliciamrich/nanombgpu.sif      │
+                     │--------------------------------│
+                     │ • Medaka polish (final OTUs)   │
+                     └────────────┬───────────────────┘
+                                  │
+                                  ▼
+          ┌────────────────────────────────────────────────────┐
+          │ CPU CONTAINER: NANOMB                             │
+          │----------------------------------------------------│
+          │ • VSEARCH SINTAX taxonomy                         │
+          │ • MAFFT multiple-sequence alignment               │
+          │ • IQ-TREE 2 phylogenetic tree inference           │
+          └────────────────────────────────────────────────────┘
+                                  │
+                                  ▼
+                 ┌──────────────────────────────────────────┐
+                 │      FINAL OUTPUTS (in $OUT_ROOT)        │
+                 │------------------------------------------│
+                 │ • otu/otus_centroids_99.fasta            │
+                 │ • otu/otus_taxonomy.sintax               │
+                 │ • otu/otu_tree.treefile                  │
+                 │ • qc/fastcat_* + NanoPlot reports        │
+                 │ • tmp/polished/polished_otus.fasta       │
+                 └──────────────────────────────────────────┘
 
 ---
 
-## ⚙️ Directory Layout
+### Workflow summary
+
+| Stage | Tool | Container | Notes |
+|-------|------|------------|-------|
+| Basecalling | **Dorado** | `docker:nanoporetech/dorado:latest` | GPU; ONT R10.4.1 SUP model |
+| Demultiplexing | **Dorado demux** | `docker:nanoporetech/dorado:latest` | Uses ONT sample sheets |
+| Trimming | **Dorado trim** | `docker:nanoporetech/dorado:latest` | Produces per-sample FASTQs |
+| QC / Filtering | **Fastcat**, **NanoPlot** | `docker:aliciamrich/nanomb` | Q-score/length filters + QC reports |
+| Clustering | **isONclust3** | `docker:aliciamrich/nanomb` | ONT-specific clustering |
+| Consensus | **SPOA** | `docker:aliciamrich/nanomb` | Generates per-cluster consensus |
+| Pooling / OTUs | **VSEARCH** | `docker:aliciamrich/nanomb` | Dereplication & clustering at 99%/97% |
+| Mapping	Minimap2 + Samtools |	`docker:aliciamrich/nanoalign:cpu` |	CPU-only alignment for polishing |
+| Polishing	Racon × 2, Medaka |	`docker:aliciamrich/nanoalign:cpu` (Racon) → `docker:aliciamrich/nanombgpu (Medaka)` |	Sequential polish: Racon × 2 + GPU Medaka |
+| Taxonomy / Tree	VSEARCH SINTAX, MAFFT, IQ-TREE 2 |	docker:aliciamrich/nanomb:cpu |	Taxonomic classification + phylogeny |
+| ASV option | **nanoASV** | `docker:aliciamrich/nanoasv` | *Third-party workflow disabled by default for 16S kits* |
+
+---
+
+### 🧩 Container Summary
+
+| Container |	Image/Path  | Purpose/Key Tools |
+|-----------|-------------|-------------------|
+| `nanomb.sif`  | `/mnt/nrdstor/richlab/shared/containers/nanomb.sif` |	Core CPU environment (Fastcat, NanoPlot, isONclust3, SPOA, MAFFT, VSEARCH, IQ-TREE 2) |
+| `nanoalign.sif` |	`/mnt/nrdstor/richlab/shared/containers/nanoalign.sif`  |	Lightweight CPU container for minimap2, samtools, and racon |
+| `nanombgpu.sif` |	`/mnt/nrdstor/richlab/shared/containers/nanombgpu.sif`  |	GPU-based Medaka polishing  |
+| `dorado.sif`  |	`/mnt/nrdstor/richlab/shared/containers/dorado.sif` |	Official ONT container for basecalling, demultiplexing, and trimming  |
+| `nanoasv.sif`  |	`/mnt/nrdstor/richlab/shared/containers/nanoasv.sif`  |	Optional ASV workflow container (disabled by default) |
+
+Note:
+: All containers are automatically pulled (or locally referenced) via Apptainer and bound to Swan’s filesystem paths configured in [`profiles/hcc/config.yaml`](profiles/hcc/config.yaml).
+: The apptainer-args ensure `/work`, `/lustre`, `/mnt/nrdstor`, and `/home` are available inside every environment.
+
+---
+
+### ⚙️ Directory Layout
 
 Data and outputs are resolved from environment variables defined by  
 [`profiles/hcc/env_setup.sh`](profiles/hcc/env_setup.sh).
@@ -38,7 +124,7 @@ Data and outputs are resolved from environment variables defined by
 | `sampleset` | e.g. `loris` | Sample collection name |
 | `dataset` | e.g. `culi` | Logical dataset under a sampleset |
 
-Pipeline outputs land under:
+####  Pipeline outputs land under:
 
 ```
 $WORK/datasets/16s///
@@ -132,11 +218,11 @@ asv_method: none
 
 - `spoa_consensus` requires temporary files with .fastq extension
 (handled automatically in the current Snakefile).
-- `nanoASV` often fails with ONT kits that already include Dorado trimming.
-The branch is disabled by default via asv_method: none.
-- The ILP solver (CBC) messages during job scheduling are normal;
-Snakemake uses them to decide job ordering.
-- If you add new containers, update paths in config.yaml under container_*.
+- Racon ≥ 1.5.0 requires .sam/.paf files for overlaps; the Snakefile automatically converts .bam → .sam via `samtools view`.
+- `nanoASV` is a third-party Snakemake pipeline currently disabled (`asv_method: none`) because ONT Dorado-trimmed reads typically fail cutadapt. If I manage to work out the bugs/mismatch in the future, then we may be able to activate this to extend funcitonality.
+- Swan's SLURM configuration requires that GPU jobs (Dorado, Medaka) run on GPU partitions — I have configured the branching automatically in each rule.
+- If you add new containers, update paths in [`config.yaml`](config/config.yaml) under `container_*`.
+- For new container builds, reference Dockerfiles under [`docker/`](docker) (e.g., `docker/nanoalign/Dockerfile`).
 - Re-run a failed rule safely with:
 
 ```bash
@@ -178,7 +264,20 @@ All stages run inside Apptainer containers (bind mounts set in the profile):
 | dorado.sif  |	/mnt/nrdstor/richlab/shared/containers/dorado.sif |	GPU basecalling, demultiplexing, and trimming with ONT Dorado |
 | nanoasv.sif |	/mnt/nrdstor/richlab/shared/containers/nanoasv.sif  |	Optional ASV generation (disabled by default) |
 
-⸻
+*These are the container paths that all members of our lab account on Swan can access. You can load the container images into another location using the code below:*
+
+```bash
+module load apptainer
+
+apptainer build nanomb.sif docker:aliciamrich/nanomb
+apptainer build nanombgpu.sif docker:aliciamrich/nanombgpu
+apptainer build nanoalign.sif docker:aliciamrich/nanoalign
+apptainer build nanoasv.sif docker:aliciamrich/nanoasv
+apptainer build dorado.sif docker:nanoporetech/dorado:latest
+
+```
+
+---
 
 ##  🧾 Citation
 
@@ -186,7 +285,7 @@ If you use this workflow in analyses or teaching:
 
 Rich Lab (2025). nanoMB: container-based ONT 16S processing pipeline.
 
-⸻
+---
 
 
 Author
@@ -196,5 +295,5 @@ License
 : MIT (open for teaching and research use)
 
 
-⸻
+---
 

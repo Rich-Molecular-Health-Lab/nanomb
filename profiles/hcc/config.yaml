@@ -25,7 +25,7 @@ envvars:
   - SINGULARITY_CACHEDIR
   - APPTAINER_TMPDIR
   - APPTAINER_CACHEDIR
-
+  
 latency-wait: 60
 restart-times: 1
 printshellcmds: true
