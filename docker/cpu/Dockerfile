@@ -37,7 +37,7 @@ COPY --from=iso3build /opt/iso3/bin/isONclust3 /usr/local/bin/isonclust3
 #  - AppImage: https://github.com/iqtree/iqtree3/releases/download/v3.x.y/iqtree-3.x.y-Linux-x86_64.AppImage
 #
 # Use a tarball if available; if you use an AppImage, mark it executable and link it to "iqtree".
-ARG IQTREE_URL=
+ARG IQTREE_URL=https://github.com/iqtree/iqtree3/releases/download/v3.0.1/iqtree-3.0.1-Linux.tar.gz
 RUN test -n "$IQTREE_URL" || (echo "ERROR: Set --build-arg IQTREE_URL=<download-url>"; exit 1)
 
 # If it's a tar.xz (preferred):
