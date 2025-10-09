@@ -1,3 +1,4 @@
+# docker/cpu/Dockerfile
 FROM mambaorg/micromamba:1.5.9
 ENV DEBIAN_FRONTEND=noninteractive MAMBA_DOCKERFILE_ACTIVATE=1
 
@@ -12,6 +13,4 @@ RUN micromamba install -y -n base -f environment.cpu.yml && micromamba clean -a 
 ENV PATH=/opt/conda/bin:$PATH
 
 WORKDIR /workspace
-# COPY workflow/ /workspace/workflow/
-
 ENTRYPOINT ["/bin/bash"]

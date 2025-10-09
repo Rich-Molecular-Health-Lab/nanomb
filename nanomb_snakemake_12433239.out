@@ -224,3 +224,29 @@ status_of_jobs after sacct is: {'12433251': 'RUNNING', '12433252': 'COMPLETED', 
 active_jobs_ids_with_current_sacct_status are: {'12433257', '12433251'}
 active_jobs_seen_by_sacct are: {'12433257', '12433251'}
 missing_sacct_status are: set()
+Checking the status of 2 active jobs with 5 attempts.
+The job status was queried with command: sacct -X --parsable2 --clusters all --noheader --format=JobIdRaw,State --starttime 2025-10-07T11:00 --endtime now --name 453d0481-db69-4646-b234-d3146e2cea50
+It took: 0.014536142349243164 seconds
+The output is:
+'12433251|RUNNING
+12433252|COMPLETED
+12433257|PENDING
+'
+
+status_of_jobs after sacct is: {'12433251': 'RUNNING', '12433252': 'COMPLETED', '12433257': 'PENDING'}
+active_jobs_ids_with_current_sacct_status are: {'12433257', '12433251'}
+active_jobs_seen_by_sacct are: {'12433257', '12433251'}
+missing_sacct_status are: set()
+Checking the status of 2 active jobs with 5 attempts.
+The job status was queried with command: sacct -X --parsable2 --clusters all --noheader --format=JobIdRaw,State --starttime 2025-10-07T11:00 --endtime now --name 453d0481-db69-4646-b234-d3146e2cea50
+It took: 0.013923883438110352 seconds
+The output is:
+'12433251|RUNNING
+12433252|COMPLETED
+12433257|PENDING
+'
+
+status_of_jobs after sacct is: {'12433251': 'RUNNING', '12433252': 'COMPLETED', '12433257': 'PENDING'}
+active_jobs_ids_with_current_sacct_status are: {'12433257', '12433251'}
+active_jobs_seen_by_sacct are: {'12433257', '12433251'}
+missing_sacct_status are: set()
