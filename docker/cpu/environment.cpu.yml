@@ -3,18 +3,17 @@ name: nanomb-cpu
 channels: [conda-forge, bioconda, nanoporetech, hcc, defaults]
 dependencies:
   - python=3.10
-  - snakemake-minimal=8.11
   - mamba
   - minimap2
   - vsearch
   - racon
   - spoa
-  - nanoplot
-  - pysam
-  - samtools
-  - pandas
-  - mafft=7.526
-  - iqtree=3.0.1      
   - nanoporetech::fastcat=0.24.1
+  - pandas
+  - pysam
+  - nanoplot
+  - samtools
+  - mafft
+  - iqtree     
   - hcc::isonclust3      
   - pip
