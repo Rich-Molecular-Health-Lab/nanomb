@@ -1,22 +1,11 @@
-docker build -f docker/cpu/Dockerfile -t aliciamrich/nanomb:0.2.0-cpu .
+# 1️⃣ Build the container (with IQ-TREE 3)
+docker build \
+  -t nanomb:iqtree3 \
+  -f docker/cpu/Dockerfile .
 
-# sanity checks
-docker run --rm -it aliciamrich/nanomb:0.2.0-cpu -lc '
-uname -m
-which isONclust3 && file "$(which isONclust3)" || true
-which fastcat && file "$(which fastcat)" || true
-isONclust3 --help | head -n 3 || true
-fastcat --version || fastcat --help | head -n 3 || true
-NanoPlot --version
-'
-docker run --rm -it aliciamrich/nanomb:0.2.0-cpu
-# you're now inside bash (ENTRYPOINT)
-uname -m
-isONclust3 --help | head -n 3
-fastcat --version
-NanoPlot --version
+# optional: sanity check before tagging/pushing
+docker run --burm -it nanomb:iqtree3 bash -lc "iqtree -h | head -1; isonclust3 --help | head -1"
 
 
-# if these work then run
-
+docker tag nanomb:iqtree3 aliciamrich/nanomb:0.2.0-cpu
 docker push aliciamrich/nanomb:0.2.0-cpu
