@@ -1,92 +1,179 @@
-# --- Identity ---
-project: culi_16S
-sampleset: loris                # e.g., loris | bats | marmoset
-dataset:   culi                 # current dataset slice you want to produce
+/.quarto/
+# History files
+.Rhistory
+.Rapp.history
 
-# --- Root where all samplesets/datasets live (envs allowed) ---
-out_root: "$OUT_ROOT"           # e.g., /work/richlab/$USER/datasets/16s
+nanomb_snakemake_*.out
+data/**/raw/**
+datasets/**         
+**/*.fastq
+**/*.bam
+**/*.pod5
+**/*.udb
+reads/**
+samples/*/seq_summaries/**
+**/*_sequencing_summary_*.txt
 
-# --- Layout (relative to out_root unless absolute); you may tweak paths freely ---
-layout:
-  dataset_dir:   "{sampleset}/{dataset}"
-  raw_dir:       "{sampleset}/{dataset}/raw"           # final FASTQs for THIS dataset
-  pod5_dir:      "{sampleset}/pod5"                    # runs live under sampleset (mixed datasets OK)
-  basecall_dir:  "{sampleset}/basecalled"              # one BAM per run
-  demux_dir:     "{sampleset}/demuxed"                 # demuxed per-run subdirs with per-sample BAMs
-  summary_dir:   "{sampleset}/dorado_summaries"        # summaries at sampleset scope
-  sample_sheet_dir: "{sampleset}/samples"              # per-run sheets
-  sample_sheet_name: "{run}_sample_sheet.csv"          # {run} injected at runtime
-  # NEW: routing map tells us which per-sample IDs belong to which dataset
-  sample_routing: "{sampleset}/samples/sample_to_dataset.tsv"  # tsv with columns: sample,dataset
+# Session Data files
+.RData
+.RDataTmp
 
-# --- Start point (choose one) ---
-pod5_in: ""                     # if empty, default to layout.pod5_dir
-reads_in: ""                    # if empty, default to layout.raw_dir (FASTQ start)
+# User-specific files
+.Ruserdata
 
-# --- Dorado settings ---
-dorado_model_name: "sup"
-dorado_models_dir: "/mnt/nrdstor/richlab/shared/dorado_models"
-dorado_gpu: true
-dorado_extra: ""
-barcode_kit: "SQK-16S114-24"
+# Example code in package build process
+*-Ex.R
 
-# --- Trimming (pre-16S) ---
-trim_emit_fastq: true
-trim_minlen: 1000
-trim_skip_glob: ["*NTC*","*unclassified*"]
+# Output files from R CMD build
+/*.tar.gz
 
-# --- References ---
-itgdb_udb:   "/mnt/nrdstor/richlab/shared/databases/itgdb_16s/taxa_itgdb.udb"
-silva_fasta: "/mnt/nrdstor/richlab/shared/databases/silva138/SILVA_138.2_SSURef_NR99_tax_silva.fasta"
+# Output files from R CMD check
+/*.Rcheck/
 
-# --- 16S thresholds ---
-minlength: 1300
-maxlength: 1700
-min_qscore: 15
+# RStudio files
+.Rproj.user/
 
-# --- Containers ---
-container_fastcat:  "/mnt/nrdstor/richlab/shared/containers/fastcat.sif"
-container_minimap2: "/mnt/nrdstor/richlab/shared/containers/minimap2.sif"
-container_iqtree2:  "/mnt/nrdstor/richlab/shared/containers/iqtree2.sif"
-container_medaka:   "/mnt/nrdstor/richlab/shared/containers/medaka.sif"
-container_dorado:   "/mnt/nrdstor/richlab/shared/containers/dorado.sif"
+# produced vignettes
+vignettes/*.html
+vignettes/*.pdf
 
-# --- Clustering / mapping ---
-otu_id_primary: 0.99
-otu_id_legacy:  0.97
-map_id: 0.97
-strand: both
-asv_method: nanoasv
-nanoasv_bin: nanoasv
-medaka_model: r1041_e82_400bps_sup_v5.0.0
-medaka_gpu: true
+# OAuth2 token, see https://github.com/hadley/httr/releases/tag/v0.3
+.httr-oauth
 
-exclude_glob: ["*_NTC.fastq","*_unclassified.fastq"]
+# knitr and R markdown default cache directories
+*_cache/
+/cache/
 
-nanoasv_opts:
-  subsample_per_barcode: 0
-  mapq: 20
+# Temporary files created by R markdown
+*.utf8.md
+*.knit.md
 
-# --- Resources (no duplicates) ---
-resources:
-  # dorado path
-  dorado_basecall: {threads: 8,  mem_mb: 32000, runtime: 90,  partition: gpu,  account: richlab, extra: "--gres=gpu:1"}
-  dorado_demux:    {threads: 8,  mem_mb: 32000, runtime: 90,  partition: gpu,  account: richlab, extra: "--gres=gpu:1"}
-  dorado_trim:     {threads: 8,  mem_mb: 32000, runtime: 240, partition: batch, account: richlab, extra: ""}
+# R Environment Variables
+.Renviron
 
-  # qc / clustering / polishing
-  fastcat_filter:         {threads: 4,  mem_mb: 8000,  runtime: 60,  partition: guest}
-  nanoplot_qc:            {threads: 2,  mem_mb: 4000,  runtime: 30,  partition: guest}
-  isonclust3:             {threads: 16, mem_mb: 32000, runtime: 180, partition: batch}
-  spoa_consensus:         {threads: 8,  mem_mb: 16000, runtime: 180, partition: batch}
-  vsearch_pool_cluster:   {threads: 16, mem_mb: 32000, runtime: 240, partition: batch}
-  map_all_reads:          {threads: 16, mem_mb: 16000, runtime: 180, partition: batch}
-  racon_round1:           {threads: 16, mem_mb: 16000, runtime: 120, partition: batch}
-  map_r1:                 {threads: 16, mem_mb: 16000, runtime: 180, partition: batch}
-  racon_round2:           {threads: 16, mem_mb: 16000, runtime: 120, partition: batch}
-  medaka_polish:          {threads: 16, mem_mb: 16000, runtime: 240, partition: batch}
-  chimera_taxonomy_tree:  {threads: 16, mem_mb: 32000, runtime: 240, partition: batch}
-  iqtree2_tree:           {threads: 16, mem_mb: 64000, runtime: 720, partition: batch}
-  otu_table_per_sample:   {threads: 16, mem_mb: 16000, runtime: 180, partition: batch}
-  asv_nanoasv:            {threads: 16, mem_mb: 32000, runtime: 360, partition: batch}
-.Rproj.user
+# pkgdown site
+docs/
+
+# translation temp files
+po/*~
+
+# RStudio Connect folder
+rsconnect/
+
+# C++ objects and libs
+*.slo
+*.lo
+*.o
+*.a
+*.la
+*.lai
+*.so
+*.so.*
+*.dll
+*.dylib
+
+# Qt-es
+object_script.*.Release
+object_script.*.Debug
+*_plugin_import.cpp
+/.qmake.cache
+/.qmake.stash
+*.pro.user
+*.pro.user.*
+*.qbs.user
+*.qbs.user.*
+*.moc
+moc_*.cpp
+moc_*.h
+qrc_*.cpp
+ui_*.h
+*.qmlc
+*.jsc
+Makefile*
+*build-*
+*.qm
+*.prl
+
+# Qt unit tests
+target_wrapper.*
+
+# QtCreator
+*.autosave
+
+# QtCreator Qml
+*.qmlproject.user
+*.qmlproject.user.*
+
+# QtCreator CMake
+CMakeLists.txt.user*
+
+# QtCreator 4.8< compilation database
+compile_commands.json
+
+# QtCreator local machine specific files for imported projects
+*creator.user*
+
+*_qmlcache.qrc
+
+
+# This .gitignore is appropriate for repositories deployed to GitHub Pages and using
+# a Gemfile as specified at https://github.com/github/pages-gem#conventional
+
+# Basic Jekyll gitignores (synchronize to Jekyll.gitignore)
+_site/
+.sass-cache/
+.jekyll-cache/
+.jekyll-metadata
+
+# Additional Ruby/bundler ignore for when you run: bundle install
+/vendor
+
+# Specific ignore for GitHub Pages
+# GitHub Pages will always use its own deployed version of pages-gem
+# This means GitHub Pages will NOT use your Gemfile.lock and therefore it is
+# counterproductive to check this file into the repository.
+# Details at https://github.com/github/pages-gem/issues/768
+Gemfile.lock
+
+# General
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon[
+]
+
+# Thumbnails
+._*
+
+# Files that might appear in the root of a volume
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+
+# Directories potentially created on remote AFP share
+.AppleDB
+.AppleDesktop
+Network Trash Folder
+Temporary Items
+.apdisk
+
+*~
+
+# temporary files which can be created if a process still has a handle open of a deleted file
+.fuse_hidden*
+
+# Metadata left by Dolphin file manager, which comes with KDE Plasma
+.directory
+
+# Linux trash folder which might appear on any partition or disk
+.Trash-*
+
+# .nfs files are created when an open file is removed but is still being accessed
+.nfs*
+
+# Log files created by default by the nohup command
+nohup.out
