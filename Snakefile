@@ -109,6 +109,7 @@ CONTAINERS = {
     "nanoasv": _expand(config.get("container_nanoasv", "/mnt/nrdstor/richlab/shared/containers/nanoasv.sif")),
     "nanoalign": _expand(config.get("container_nanoalign", "/mnt/nrdstor/richlab/shared/containers/nanoalign.sif")),
     "dorado":  _expand(config.get("container_dorado",  "/mnt/nrdstor/richlab/shared/containers/dorado.sif")),
+    "mafft":  _expand(config.get("container_mafft",  "/mnt/nrdstor/richlab/shared/containers/mafft.sif")),
     "iqtree2": _expand(config.get("container_iqtree2", "")),
 }
 
@@ -674,12 +675,14 @@ rule map_r1:
         extra    =  R("map_r1", "extra") 
     container: CONTAINERS["nanoalign"]
     shell: r"""
-      set -euo pipefail
-      tmpdir="${TMPDIR:-/tmp}"
-      minimap2 -t {threads} -ax map-ont "{input.r1}" "{input.reads}" \
-        | samtools sort -@ {threads} -m 1G -T "$tmpdir/map_r1" -o "{output.bam}"
-      samtools index -@ {threads} "{output.bam}"
-    """
+        set -euo pipefail
+        tmpdir="{resources.tmpdir}"
+        [ -n "$tmpdir" ] || tmpdir="/tmp"
+      
+        minimap2 -t {threads} -ax map-ont "{input.r1}" "{input.reads}" \
+          | samtools sort -@ {threads} -m 1G -T "$tmpdir/map_r1" -o "{output.bam}"
+        samtools index -@ {threads} "{output.bam}"
+      """
     
 # racon_round2
 rule racon_round2:
@@ -737,60 +740,110 @@ rule medaka_polish:
 
         cp "{POLISH_DIR}/medaka_refined/consensus.fasta" "{output.polished}"
         """
-        
-rule chimera_taxonomy_tree:
-    input: fasta = POLISHED, db = ITGDB_UDB
+
+##############################################
+#  POST-POLISH OTU PROCESSING STAGE
+#  (Runs after medaka_polish)
+##############################################
+
+# 1. Identify chimeras + assign taxonomy
+rule chimera_taxonomy:
+    input:
+        fasta = POLISHED,
+        db    = ITGDB_UDB
     output:
         nonchim = os.path.join(OUT, "otu/otus_clean.fasta"),
         chimera = os.path.join(OUT, "otu/otus_chimeras.fasta"),
-        sintax  = os.path.join(OUT, "otu/otus_taxonomy.sintax"),
-        msa     = os.path.join(OUT, "otu/otu_references_aligned.fasta")
-    threads: Rq("chimera_taxonomy_tree", "threads")
+        sintax  = os.path.join(OUT, "otu/otus_taxonomy.sintax")
+    threads: Rq("chimera_taxonomy", "threads")
     resources:
-        mem_mb   = Rq("chimera_taxonomy_tree", "mem_mb"), 
-        runtime  = Rq("chimera_taxonomy_tree", "runtime"),
-        partition= Rq("chimera_taxonomy_tree", "partition"),
-        account  = Rq("chimera_taxonomy_tree", "account"),
-        extra    =  R("chimera_taxonomy_tree", "extra") 
-    log: os.path.join(OUT, "logs/chimera_taxonomy_tree.log")
+        mem_mb    = Rq("chimera_taxonomy", "mem_mb"),
+        runtime   = Rq("chimera_taxonomy", "runtime"),
+        partition = Rq("chimera_taxonomy", "partition"),
+        account   = Rq("chimera_taxonomy", "account"),
+        extra     = R("chimera_taxonomy", "extra")
     container: CONTAINERS["cpu"]
     shell: r"""
       set -euo pipefail
+      command -v vsearch >/dev/null || {{ echo "vsearch not found"; exit 127; }}
+
       mkdir -p {OUT}/otu
-      vsearch --uchime_denovo {input.fasta} --nonchimeras {output.nonchim} --chimeras {output.chimera} --threads {threads}
-      vsearch --sintax {output.nonchim} --db {input.db} --sintax_cutoff {SINTAX_CUTOFF} --tabbedout {output.sintax} --threads {threads}
-      mafft --auto --thread {threads} {output.nonchim} > {output.msa}
+
+      # --- De novo chimera filtering ---
+      vsearch --uchime_denovo {input.fasta} \
+        --nonchimeras {output.nonchim} \
+        --chimeras {output.chimera} \
+        --threads {threads}
+
+      # --- Taxonomic classification ---
+      vsearch --sintax {output.nonchim} \
+        --db {input.db} \
+        --sintax_cutoff {SINTAX_CUTOFF} \
+        --tabbedout {output.sintax} \
+        --threads {threads}
     """
 
-rule iqtree2_tree:
-    input: msa = rules.chimera_taxonomy_tree.output.msa
-    output: tree = os.path.join(OUT, "otu/otu_tree.treefile")
-    threads: Rq("iqtree2_tree", "threads")
+
+# 2. Multiple sequence alignment of non-chimeric OTUs
+rule otu_alignment:
+    input:
+        fasta = rules.chimera_taxonomy.output.nonchim
+    output:
+        msa = os.path.join(OUT, "otu/otu_references_aligned.fasta")
+    threads: Rq("otu_alignment", "threads")
     resources:
-        mem_mb   = Rq("iqtree2_tree", "mem_mb"), 
-        runtime  = Rq("iqtree2_tree", "runtime"),
-        partition= Rq("iqtree2_tree", "partition"),
-        account  = Rq("iqtree2_tree", "account"),
-        extra    =  R("iqtree2_tree", "extra") 
-    log: os.path.join(OUT, "logs/iqtree2_tree.log")
-    container: CONTAINERS["iqtree2"] or CONTAINERS["cpu"]
+        mem_mb    = Rq("otu_alignment", "mem_mb"),
+        runtime   = Rq("otu_alignment", "runtime"),
+        partition = Rq("otu_alignment", "partition"),
+        account   = Rq("otu_alignment", "account"),
+        extra     = R("otu_alignment", "extra")
+    container: CONTAINERS["mafft"]
     shell: r"""
       set -euo pipefail
-      iqtree2 -s {input.msa} -nt AUTO -m TEST -bb 1000 -alrt 1000 -pre {OUT}/otu/otu_tree
-      test -s {output.tree}
+      command -v mafft >/dev/null || {{ echo "mafft not found"; exit 127; }}
+      mafft --auto --thread {threads} "{input.fasta}" > "{output.msa}"
     """
 
+
+# 3. Phylogenetic tree inference
+rule iqtree2_tree:
+    input:
+        msa = rules.otu_alignment.output.msa
+    output:
+        tree = os.path.join(OUT, "otu/otu_tree.treefile")
+    threads: Rq("iqtree2_tree", "threads")
+    resources:
+        mem_mb    = Rq("iqtree2_tree", "mem_mb"),
+        runtime   = Rq("iqtree2_tree", "runtime"),
+        partition = Rq("iqtree2_tree", "partition"),
+        account   = Rq("iqtree2_tree", "account"),
+        extra     = R("iqtree2_tree", "extra")
+    log: os.path.join(OUT, "logs/iqtree2_tree.log")
+    container: CONTAINERS.get("iqtree2", CONTAINERS["cpu"])
+    shell: r"""
+      set -euo pipefail
+      iqtree2 -s {input.msa} -nt AUTO -m TEST -bb 1000 -alrt 1000 \
+              -pre {OUT}/otu/otu_tree
+      test -s {output.tree}
+    """
+    
+# 4. Per-sample read counts for each OTU
 rule otu_table_per_sample:
-    input: refs = rules.chimera_taxonomy_tree.output.nonchim, reads = rules.fastcat_filter.output.fastq
-    output: merged = os.path.join(OUT, "otu/otu_table_merged.tsv")
+    input:
+        refs  = rules.chimera_taxonomy.output.nonchim,
+        reads = rules.fastcat_filter.output.fastq
+    output:
+        merged = os.path.join(OUT, "otu/otu_table_merged.tsv")
     threads: Rq("otu_table_per_sample", "threads")
     resources:
-        mem_mb   = Rq("otu_table_per_sample", "mem_mb"), 
-        runtime  = Rq("otu_table_per_sample", "runtime"),
-        partition= Rq("otu_table_per_sample", "partition"),
-        account  = Rq("otu_table_per_sample", "account"),
-        extra    =  R("otu_table_per_sample", "extra") 
-    log: os.path.join(OUT, "logs/otu_table_per_sample.log")
+        mem_mb    = Rq("otu_table_per_sample", "mem_mb"),
+        runtime   = Rq("otu_table_per_sample", "runtime"),
+        partition = Rq("otu_table_per_sample", "partition"),
+        account   = Rq("otu_table_per_sample", "account"),
+        extra     = R("otu_table_per_sample", "extra")
+    params:
+        map_id = lambda wc: MAP_ID,
+        strand = lambda wc: STRAND
     container: CONTAINERS["cpu"]
     shell: r"""
       set -euo pipefail
@@ -798,8 +851,12 @@ rule otu_table_per_sample:
       shopt -s nullglob
       for fq in {input.reads}/*.fastq; do
         sid=$(basename "$fq" .fastq)
-        vsearch --usearch_global "$fq" --db {input.refs} --id {MAP_ID} --strand {STRAND} \
-                --otutabout {OUT}/otu/tables/otu_table_${{sid}}.tsv --threads {threads}
+        vsearch --usearch_global "$fq" \
+                --db {input.refs} \
+                --id {params.map_id} \
+                --strand {params.strand} \
+                --otutabout {OUT}/otu/tables/otu_table_${{sid}}.tsv \
+                --threads {threads}
       done
       python - <<'PY'
       import glob, os, pandas as pd
@@ -810,12 +867,19 @@ rule otu_table_per_sample:
           raise SystemExit("No per-sample OTU tables found to merge.")
       for d in dfs:
           first = d.columns[0]
-          d.rename(columns={{first: "OTU"}}, inplace=True)
+          d.rename(columns=dict([(first, "OTU")]), inplace=True)
       from functools import reduce
       merged = reduce(lambda l, r: pd.merge(l, r, on="OTU", how="outer"), dfs).fillna(0)
       merged.to_csv(out, sep="\t", index=False)
       PY
     """
+    
+    
+##############################################
+#  SUPPLEMENTAL RUN OF NANOASV
+#  (still not working - to test later)
+##############################################
+
 
 rule asv_nanoasv:
     input: rules.fastcat_filter.output.fastq
