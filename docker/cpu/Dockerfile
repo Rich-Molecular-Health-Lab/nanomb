@@ -5,7 +5,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates git pkg-config clang && \
     rm -rf /var/lib/apt/lists/*
 WORKDIR /src
-RUN git clone --depth 1 https://github.com/ksahlin/isONclust3.git .
+RUN git clone --depth 1 https://github.com/aljpetri/isONclust3.git .
 RUN cargo build --release --locked && strip target/release/isonclust3
 
 
