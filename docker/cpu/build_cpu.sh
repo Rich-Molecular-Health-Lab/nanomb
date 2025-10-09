@@ -1,6 +1,6 @@
 # 1️⃣ Build the container (with IQ-TREE 3)
 docker build \
-  -t nanomb:iqtree3 \
+  -t nanomb:0.2.0-cpu \
   -f docker/cpu/Dockerfile .
 
 # optional: sanity check before tagging/pushing

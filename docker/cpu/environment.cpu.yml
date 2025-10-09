@@ -1,4 +1,3 @@
-# docker/cpu/environment.cpu.yml
 name: nanomb
 channels: [conda-forge, bioconda, nanoporetech, hcc, defaults]
 dependencies:

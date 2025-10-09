@@ -38,7 +38,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /opt/env
 COPY docker/cpu/environment.cpu.yml .
-RUN micromamba install -y -n nanomb -f environment.cpu.yml && micromamba clean -a -y
+RUN micromamba create -y -n nanomb -f environment.cpu.yml && micromamba clean -a -y
 
 ENV MAMBA_DEFAULT_ENV=nanomb
 ENV PATH=/opt/conda/envs/nanomb/bin:/opt/conda/bin:$PATH
