@@ -22,41 +22,41 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /opt/env
 COPY docker/cpu/environment.cpu.yml .
 # Tip: if memory is tight during solve, pin exact versions in environment.cpu.yml
-RUN micromamba create -y -n nanomb -f environment.cpu.yml && micromamba clean -a -y
+# create env (keep what you had)
+RUN micromamba create -y -n nanomb -c conda-forge -c bioconda -c nanoporetech -c hcc -c defaults \
+      python=3.11 snakemake-minimal=8.11 vsearch racon spoa pysam nanoporetech::fastcat \
+  && micromamba clean -a -y
+
+# add the missing bits
+RUN micromamba install -y -n nanomb -c conda-forge -c bioconda \
+      mafft nanoplot \
+  && micromamba clean -a -y
 
 ENV MAMBA_DEFAULT_ENV=nanomb
 ENV PATH=/opt/conda/envs/nanomb/bin:/opt/conda/bin:$PATH
-
 # ---- isONclust3 (from the Rust build stage) ----
 COPY --from=iso3build /opt/iso3/bin/isONclust3 /usr/local/bin/isonclust3
 
-# ---- IQ-TREE 3 (prebuilt binary) ----
-# Provide the exact URL for the Linux release you want.
-# Examples (these are examples—use the one you need):
-#  - Tarball: https://github.com/iqtree/iqtree3/releases/download/v3.x.y/iqtree-3.x.y-Linux.tar.xz
-#  - AppImage: https://github.com/iqtree/iqtree3/releases/download/v3.x.y/iqtree-3.x.y-Linux-x86_64.AppImage
-#
-# Use a tarball if available; if you use an AppImage, mark it executable and link it to "iqtree".
-ARG IQTREE_URL=https://github.com/iqtree/iqtree3/releases/download/v3.0.1/iqtree-3.0.1-Linux.tar.gz
+# --- IQ-TREE (prebuilt tarball) ---
+ARG IQTREE_URL
 RUN test -n "$IQTREE_URL" || (echo "ERROR: Set --build-arg IQTREE_URL=<download-url>"; exit 1)
-
-# If it's a tar.xz (preferred):
-RUN case "$IQTREE_URL" in \
-      *.tar.xz|*.tar.gz) \
-        mkdir -p /usr/local/iqtree && \
-        curl -L "$IQTREE_URL" -o /tmp/iqtree.tar && \
-        tar -xf /tmp/iqtree.tar -C /usr/local/iqtree --strip-components=1 && \
-        ln -sf /usr/local/iqtree/bin/iqtree3 /usr/local/bin/iqtree && \
-        rm -f /tmp/iqtree.tar \
-      ;; \
-      *.AppImage) \
-        curl -L "$IQTREE_URL" -o /usr/local/bin/iqtree3 && \
-        chmod +x /usr/local/bin/iqtree3 && \
-        ln -sf /usr/local/bin/iqtree3 /usr/local/bin/iqtree \
-      ;; \
-      *) echo "Unknown IQTREE_URL artifact type"; exit 2 ;; \
-    esac
-
+RUN set -euo pipefail; cd /tmp; \
+  curl -L -o iqtree.tar.xz "$IQTREE_URL"; \
+  topdir="$(tar -tf iqtree.tar.xz | head -1 | cut -d/ -f1)"; \
+  mkdir -p /opt && tar -xJf iqtree.tar.xz -C /opt; \
+  if [ -x "/opt/${topdir}/bin/iqtree3" ]; then \
+      ln -sf "/opt/${topdir}/bin/iqtree3" /usr/local/bin/iqtree3; \
+  elif [ -x "/opt/${topdir}/iqtree3" ]; then \
+      ln -sf "/opt/${topdir}/iqtree3" /usr/local/bin/iqtree3; \
+  else \
+      tgt="$(find /opt/${topdir} -maxdepth 2 -type f -name iqtree3 | head -n1)"; \
+      test -n "$tgt" && ln -sf "$tgt" /usr/local/bin/iqtree3; \
+  fi; \
+  ln -sf /usr/local/bin/iqtree3 /usr/local/bin/iqtree; \
+  rm -f /usr/local/bin/iqtree3_intel || true; \
+  rm -f iqtree.tar.xz
+  
+  
 # ---- sanity banner on container start ----
 CMD ["bash", "-lc", "echo 'Tools on PATH:'; \
   which vsearch spoa mafft iqtree nanoplot python isonclust3 || true; \
