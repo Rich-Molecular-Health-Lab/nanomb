@@ -20,9 +20,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # ----- conda env (lean toolset you need from conda) -----
 WORKDIR /opt/env
-COPY docker/cpu/environment.cpu.yml .
-# Tip: if memory is tight during solve, pin exact versions in environment.cpu.yml
-# create env (keep what you had)
 RUN micromamba create -y -n nanomb -c conda-forge -c bioconda -c nanoporetech -c hcc -c defaults \
       python=3.11 snakemake-minimal=8.11 vsearch racon spoa pysam nanoporetech::fastcat \
   && micromamba clean -a -y
@@ -34,36 +31,29 @@ RUN micromamba install -y -n nanomb -c conda-forge -c bioconda \
 
 ENV MAMBA_DEFAULT_ENV=nanomb
 ENV PATH=/opt/conda/envs/nanomb/bin:/opt/conda/bin:$PATH
+
 # ---- isONclust3 (from the Rust build stage) ----
 COPY --from=iso3build /opt/iso3/bin/isONclust3 /usr/local/bin/isonclust3
 
-# --- IQ-TREE (prebuilt tarball; handles .tar.xz or .tar.gz) ---
+# --- IQ-TREE (prebuilt tarball; supports .tar.gz and .tar.xz) ---
 ARG IQTREE_URL
 RUN test -n "$IQTREE_URL" || (echo "ERROR: Set --build-arg IQTREE_URL=<download-url>"; exit 1)
 RUN set -euo pipefail; cd /tmp; \
-  fname="iqtree.$(basename "$IQTREE_URL" | sed 's/.*\.tar\.\(xz\|gz\)$/tar.\1/')"; \
-  curl -L "$IQTREE_URL" -o "$fname"; \
+  fname="iqtree.$(basename "$IQTREE_URL")"; \
+  curl -fsSL "$IQTREE_URL" -o "$fname"; \
+  mkdir -p /opt/iqtree-dist; \
   case "$fname" in \
-    *.tar.xz) tarflag="J" ;; \
-    *.tar.gz) tarflag="z" ;; \
+    *.tar.gz) tar -xzf "$fname" -C /opt/iqtree-dist ;; \
+    *.tar.xz) tar -xJf "$fname" -C /opt/iqtree-dist ;; \
     *) echo "Unsupported archive: $fname" >&2; exit 2 ;; \
   esac; \
-  topdir="$(tar -t${tarflag}f "$fname" | head -1 | cut -d/ -f1)"; \
-  mkdir -p /opt && tar -x${tarflag}f "$fname" -C /opt; \
-  # find the actual iqtree3 binary in common layouts
-  if [ -x "/opt/${topdir}/bin/iqtree3" ]; then \
-      ln -sf "/opt/${topdir}/bin/iqtree3" /usr/local/bin/iqtree3; \
-  elif [ -x "/opt/${topdir}/iqtree3" ]; then \
-      ln -sf "/opt/${topdir}/iqtree3" /usr/local/bin/iqtree3; \
-  else \
-      tgt="$(find "/opt/${topdir}" -maxdepth 3 -type f -name iqtree3 | head -n1)"; \
-      test -n "$tgt" && ln -sf "$tgt" /usr/local/bin/iqtree3; \
-  fi; \
-  chmod +x /usr/local/bin/iqtree3; \
+  # Find the iqtree3 binary regardless of layout
+  tgt="$(find /opt/iqtree-dist -maxdepth 3 -type f -name iqtree3 -perm -111 | head -n1)"; \
+  test -n "$tgt" || { echo "iqtree3 binary not found after extract"; exit 3; }; \
+  ln -sf "$tgt" /usr/local/bin/iqtree3; \
   ln -sf /usr/local/bin/iqtree3 /usr/local/bin/iqtree; \
   rm -f /usr/local/bin/iqtree3_intel || true; \
-  rm -f "$fname"
-  
+  rm -f "/tmp/$fname"  
   
 # ---- sanity banner on container start ----
 CMD ["bash", "-lc", "echo 'Tools on PATH:'; \
