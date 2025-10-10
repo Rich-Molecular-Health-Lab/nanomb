@@ -44,7 +44,7 @@ ENTRYPOINT ["/usr/local/bin/_entrypoint.sh"]
 # isONclust3
 COPY --from=iso3build /opt/iso3/bin/isONclust3 /usr/local/bin/isonclust3
 
-# --- IQ-TREE (link the real binary, not the wrapper) ---
+# --- IQ-TREE (robust: keep wrapper + companions together) ---
 ARG IQTREE_URL
 RUN test -n "$IQTREE_URL" || (echo "ERROR: Set --build-arg IQTREE_URL=<download-url>"; exit 1)
 RUN set -euo pipefail; cd /tmp; \
@@ -56,14 +56,15 @@ RUN set -euo pipefail; cd /tmp; \
     *.tar.xz) tar -xJf "$fname" -C /opt/iqtree-dist ;; \
     *) echo "Unsupported archive: $fname" >&2; exit 2 ;; \
   esac; \
-  # Prefer an actual ELF binary (avx2 -> sse2 -> any iqtree3*)
-  tgt="$(find /opt/iqtree-dist -maxdepth 4 -type f -perm -111 \( -name 'iqtree3_avx2' -o -name 'iqtree3_sse2' -o -name 'iqtree3*' \) \
-        -exec sh -c 'file -b \"$1\" | grep -q ELF && echo \"$1\"' _ {} \; | head -n1)"; \
-  test -n "$tgt" || { echo "iqtree3 binary not found after extract"; exit 3; }; \
-  install -Dm755 "$tgt" /usr/local/bin/iqtree3; \
-  ln -sf /usr/local/bin/iqtree3 /usr/local/bin/iqtree; \
+  bindir="$(find /opt/iqtree-dist -maxdepth 4 -type d -name bin | head -n1)"; \
+  test -n "$bindir" || { echo "iqtree bin/ dir not found after extract"; ls -R /opt/iqtree-dist; exit 3; }; \
+  # Copy everything in bin so the wrapper can find its sibling binaries
+  cp -a "$bindir/." /usr/local/bin/; \
+  chmod +x /usr/local/bin/iqtree3* || true; \
+  # Provide the common alias
+  ln -sf /usr/local/bin/iqtree3 /usr/local/bin/iqtree || true; \
   rm -f "/tmp/$fname"
-
+  
 # ---- friendly sanity banner ----
 CMD bash -lc '\
   echo "Tools on PATH:"; which vsearch spoa mafft iqtree NanoPlot python isonclust3 || true; \
