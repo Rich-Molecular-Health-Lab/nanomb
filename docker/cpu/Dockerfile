@@ -37,24 +37,32 @@ ENV PATH=/opt/conda/envs/nanomb/bin:/opt/conda/bin:$PATH
 # ---- isONclust3 (from the Rust build stage) ----
 COPY --from=iso3build /opt/iso3/bin/isONclust3 /usr/local/bin/isonclust3
 
-# --- IQ-TREE (prebuilt tarball) ---
+# --- IQ-TREE (prebuilt tarball; handles .tar.xz or .tar.gz) ---
 ARG IQTREE_URL
 RUN test -n "$IQTREE_URL" || (echo "ERROR: Set --build-arg IQTREE_URL=<download-url>"; exit 1)
 RUN set -euo pipefail; cd /tmp; \
-  curl -L -o iqtree.tar.xz "$IQTREE_URL"; \
-  topdir="$(tar -tf iqtree.tar.xz | head -1 | cut -d/ -f1)"; \
-  mkdir -p /opt && tar -xJf iqtree.tar.xz -C /opt; \
+  fname="iqtree.$(basename "$IQTREE_URL" | sed 's/.*\.tar\.\(xz\|gz\)$/tar.\1/')"; \
+  curl -L "$IQTREE_URL" -o "$fname"; \
+  case "$fname" in \
+    *.tar.xz) tarflag="J" ;; \
+    *.tar.gz) tarflag="z" ;; \
+    *) echo "Unsupported archive: $fname" >&2; exit 2 ;; \
+  esac; \
+  topdir="$(tar -t${tarflag}f "$fname" | head -1 | cut -d/ -f1)"; \
+  mkdir -p /opt && tar -x${tarflag}f "$fname" -C /opt; \
+  # find the actual iqtree3 binary in common layouts
   if [ -x "/opt/${topdir}/bin/iqtree3" ]; then \
       ln -sf "/opt/${topdir}/bin/iqtree3" /usr/local/bin/iqtree3; \
   elif [ -x "/opt/${topdir}/iqtree3" ]; then \
       ln -sf "/opt/${topdir}/iqtree3" /usr/local/bin/iqtree3; \
   else \
-      tgt="$(find /opt/${topdir} -maxdepth 2 -type f -name iqtree3 | head -n1)"; \
+      tgt="$(find "/opt/${topdir}" -maxdepth 3 -type f -name iqtree3 | head -n1)"; \
       test -n "$tgt" && ln -sf "$tgt" /usr/local/bin/iqtree3; \
   fi; \
+  chmod +x /usr/local/bin/iqtree3; \
   ln -sf /usr/local/bin/iqtree3 /usr/local/bin/iqtree; \
   rm -f /usr/local/bin/iqtree3_intel || true; \
-  rm -f iqtree.tar.xz
+  rm -f "$fname"
   
   
 # ---- sanity banner on container start ----
