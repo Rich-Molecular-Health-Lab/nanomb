@@ -6,17 +6,17 @@ IQURL="https://github.com/iqtree/iqtree3/releases/download/v3.0.1/iqtree-3.0.1-L
 docker build \
   --platform linux/amd64 \
   --build-arg IQTREE_URL="$IQURL" \
-  -t <dockerhub-user>/nanomb-cpu:$TAG \
-  -f Dockerfile.cpu .
+  -t aliciamrich/nanomb-cpu:$TAG \
+  -f Dockerfile .
 
 # 3) Push to Docker Hub
-docker push <dockerhub-user>/nanomb-cpu:$TAG
+docker push aliciamrich/nanomb-cpu:$TAG
 
 ------------------------
 
-module load apptainer  # if needed on HCC
+module load apptainer  
 apptainer pull /mnt/nrdstor/richlab/shared/containers/nanomb.sif \
-  docker://docker.io/<dockerhub-user>/nanomb-cpu:$TAG
+  docker://aliciamrich/nanomb-cpu:$TAG
   
 apptainer exec /mnt/nrdstor/richlab/shared/containers/nanomb.sif \
   bash -lc 'which isONclust3 isonclust3 vsearch mafft iqtree3 NanoPlot python && \
