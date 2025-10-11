@@ -1,17 +1,23 @@
+# 1) Pick a versioned tag (date or git sha)
+TAG=2025-10-11
+IQURL="https://github.com/iqtree/iqtree3/releases/download/v3.0.1/iqtree-3.0.1-Linux.tar.gz"
+
+# 2) Build for the cluster arch (most HCC nodes are x86_64)
 docker build \
-  --build-arg IQTREE_URL="https://github.com/iqtree/iqtree3/releases/download/v3.0.1/iqtree-3.0.1-Linux.tar.gz" \
-  -t nanomb:0.2.0-cpu \
-  -f docker/cpu/Dockerfile .
+  --platform linux/amd64 \
+  --build-arg IQTREE_URL="$IQURL" \
+  -t <dockerhub-user>/nanomb-cpu:$TAG \
+  -f Dockerfile.cpu .
+
+# 3) Push to Docker Hub
+docker push <dockerhub-user>/nanomb-cpu:$TAG
+
+------------------------
+
+module load apptainer  # if needed on HCC
+apptainer pull /mnt/nrdstor/richlab/shared/containers/nanomb.sif \
+  docker://docker.io/<dockerhub-user>/nanomb-cpu:$TAG
   
-
-docker push aliciamrich/nanomb:0.2.0-cpu
-
-docker run --rm -it nanomb:0.2.0-cpu bash -lc '
-  echo "PATH=$PATH";
-  which python mafft NanoPlot iqtree isonclust3;
-  python --version;
-  mafft --version | head -1;
-  NanoPlot --version;
-  iqtree -h | head -1;
-  isonclust3 --help | head -1;
-'
+apptainer exec /mnt/nrdstor/richlab/shared/containers/nanomb.sif \
+  bash -lc 'which isONclust3 isonclust3 vsearch mafft iqtree3 NanoPlot python && \
+            isONclust3 --help | head -1 && iqtree3 -v | head -1'

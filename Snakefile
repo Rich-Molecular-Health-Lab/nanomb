@@ -38,8 +38,6 @@ def resolve_path(base, path_template, **vals):
     if not p: return ""
     return p if os.path.isabs(p) else os.path.join(base, p)
   
-from snakemake.exceptions import WorkflowError
-
 def Rq(rule, key):
     """Required resource getter: error if missing in config."""
     try:
@@ -110,7 +108,7 @@ CONTAINERS = {
     "nanoalign": _expand(config.get("container_nanoalign", "/mnt/nrdstor/richlab/shared/containers/nanoalign.sif")),
     "dorado":  _expand(config.get("container_dorado",  "/mnt/nrdstor/richlab/shared/containers/dorado.sif")),
     "mafft":  _expand(config.get("container_mafft",  "/mnt/nrdstor/richlab/shared/containers/mafft.sif")),
-    "iqtree2": _expand(config.get("container_iqtree2", "")),
+    "iqtree3":  _expand(config.get("container_iqtree3",  "/mnt/nrdstor/richlab/shared/containers/iqtree3.sif"))
 }
 
 # ---- wildcardable string templates (no callables) ----
@@ -129,18 +127,11 @@ LOG_TRIM_T       = os.path.join(OUT, "logs", "trim_{run}_{sample}.log")
 READS_IN_CFG = _expand(config.get("reads_in","")).strip()
 POD5_IN_CFG  = _expand(config.get("pod5_in","")).strip()
 
-POD5_IN  = POD5_IN_CFG or resolve_path(OUT_ROOT, LAYOUT["pod5_dir"],  sampleset=SAMPLESET, dataset=DATASET)
-READS_IN = READS_IN_CFG or resolve_path(OUT_ROOT, LAYOUT["raw_dir"],  sampleset=SAMPLESET, dataset=DATASET)
-
-for p in (OUT, TMP, os.path.join(OUT,"otu"), os.path.join(OUT,"asv"), os.path.join(OUT,"logs"), os.path.join(OUT,"benchmarks")):
-    Path(p).mkdir(parents=True, exist_ok=True)
-    
 ITGDB_UDB   = _expand(config.get("itgdb_udb", ""))
 SILVA_FASTA = _expand(config.get("silva_fasta", ""))
 
 MAP_ID  = float(config.get("map_id", 0.98))
 STRAND  = config.get("strand", "both")
-THREADS = int(config.get("threads", 16))
 NANOASV = config.get("nanoasv_bin", "nanoasv")
 SINTAX_CUTOFF = float(config.get("sintax_cutoff", 0.8))
 MIN_UNIQUE = int(config.get("min_unique_size", 1))
@@ -218,6 +209,7 @@ _final_targets = (
     _demux_done
     + [
         os.path.join(TMP, "preflight.ok"),
+        os.path.join(TMP, "dorado_all_runs.ok"),
         os.path.join(OUT, "manifest.txt"),
         os.path.join(OUT, "benchmarks/fastcat_filter.tsv"),
         os.path.join(OUT, "qc/nanoplot"),
@@ -228,6 +220,7 @@ _final_targets = (
         os.path.join(OUT, "otu/otus_taxonomy.sintax"),
         os.path.join(OUT, "otu/otus_centroids_99.fasta"),
         os.path.join(OUT, "otu/otus_centroids_97.fasta"),
+        os.path.join(OUT, "silva/species/silva_species_merged.tsv"),  
       ]
     + _asv
 )
@@ -242,20 +235,16 @@ rule preflight:
     run:
         if not input.db or not os.path.exists(input.db) or os.path.getsize(input.db) == 0:
             raise WorkflowError(f"SINTAX DB missing/empty: {input.db!r}")
-        if config.get("asv_method", None) == "nanoasv":
-            if not SILVA_FASTA or not os.path.exists(SILVA_FASTA) or os.path.getsize(SILVA_FASTA) == 0:
-                raise WorkflowError(f"SILVA reference missing/empty: {SILVA_FASTA!r}")
 
-        # Require either POD5 run dirs or any RAW FASTQs across runs
-        pod5_root = resolve_path(OUT_ROOT, LAYOUT["pod5_dir"], sampleset=SAMPLESET, dataset=DATASET)
-        have_pod5 = Path(pod5_root).exists() and any(p.is_dir() for p in Path(pod5_root).iterdir())
-        have_raw = any(Path(raw_dir_for_run(r)).glob("*.fastq*") for r in RUNS) if Path(RAW_BASE).exists() else False
-        if not (have_pod5 or have_raw):
-            raise WorkflowError(f"No inputs found. Looked for POD5 under {pod5_root} and FASTQs under {RAW_BASE}")
+        if not SILVA_FASTA or not os.path.exists(SILVA_FASTA) or os.path.getsize(SILVA_FASTA) == 0:
+            raise WorkflowError(f"SILVA reference missing/empty: {SILVA_FASTA!r}")
 
-        for k, img in CONTAINERS.items():
-            if not img and k in ("cpu", "gpu", "nanoasv", "dorado"):
-                raise WorkflowError(f"Container path/URI for '{k}' not set.")              
+        must_have = ("cpu","gpu","nanoalign","dorado","mafft","iqtree3")
+        for k in must_have:
+            img = CONTAINERS.get(k, "")
+            if not img:
+                raise WorkflowError(f"Container path/URI for '{k}' not set.")
+              
 rule manifest:
     output: os.path.join(OUT, "manifest.txt")
     run:
@@ -349,7 +338,10 @@ rule dorado_demux:
 rule dorado_all_runs:
     input:
         [basecall_dir(r) for r in RUNS],
-        [demux_dir(r)    for r in RUNS],
+        [demux_dir(r)    for r in RUNS]
+    output:
+        touch(os.path.join(TMP, "dorado_all_runs.ok"))
+    shell: "true"
         
 def demux_index_path_for_run(run): return os.path.join(TMP, f"demux_index_{run}.tsv")
 
@@ -448,7 +440,8 @@ def all_raw_fastq_glob():
             files.extend(glob.glob(os.path.join(d, "*.fastq")))
             files.extend(glob.glob(os.path.join(d, "*.fastq.gz")))
     return sorted(set(files))
-
+  
+    
 rule fastcat_filter:
     input: all_raw_fastq_glob()
     output: fastq = directory(os.path.join(TMP, "filtered"))
@@ -502,15 +495,215 @@ rule nanoplot_qc:
         partition= Rq("nanoplot_qc", "partition"),
         account  = Rq("nanoplot_qc", "account"),
         extra    =  R("nanoplot_qc", "extra") 
+    params:
+      maxlen = lambda wc: config["maxlength"],
+      minlen = lambda wc: config["minlength"]
     container: CONTAINERS["cpu"]
     shell: r"""
       set -euo pipefail
       mkdir -p {output}
       cat {input}/*.fastq > {output}/all.fastq
-      NanoPlot --fastq {output}/all.fastq -o {output} --drop_outliers --maxlength {config[maxlength]} --minlength {config[minlength]}
+      NanoPlot --fastq {output}/all.fastq -o {output} --drop_outliers \
+        --maxlength {params.maxlen} --minlength {params.minlen}
     """
 
 # ---------------- OTU branch ----------------
+rule silva_index:
+    input:
+        fasta = SILVA_FASTA
+    output:
+        mmi = os.path.join(OUT, "silva/index", config.get("silva_index_name", "SILVA_138.2_SSURef_NR99.mmi"))
+    threads: Rq("silva_index", "threads")
+    resources:
+        mem_mb   = Rq("silva_index", "mem_mb"), 
+        runtime  = Rq("silva_index", "runtime"),
+        partition= Rq("silva_index", "partition"),
+        account  = Rq("silva_index", "account"),
+        extra    =  R("silva_index", "extra") 
+    container: CONTAINERS["nanoalign"]  
+    shell: r"""
+      set -euo pipefail
+      mkdir -p "{OUT}/silva/index"
+      minimap2 -d "{output.mmi}" "{input.fasta}"
+    """
+    
+rule silva_taxmap:
+    input:
+        fasta = SILVA_FASTA
+    output:
+        taxmap = os.path.join(OUT, "silva", "silva_taxmap.tsv")
+    threads: Rq("silva_taxmap", "threads")
+    resources:
+        mem_mb   = Rq("silva_taxmap", "mem_mb"), 
+        runtime  = Rq("silva_taxmap", "runtime"),
+        partition= Rq("silva_taxmap", "partition"),
+        account  = Rq("silva_taxmap", "account"),
+        extra    =  R("silva_taxmap", "extra") 
+    container: CONTAINERS["cpu"]         # needs Python
+    shell: r"""
+      set -euo pipefail
+      mkdir -p "{OUT}/silva"
+      PYBIN=$(command -v python || command -v python3 || true)
+      if [ -z "$PYBIN" ]; then echo "No python in container." >&2; exit 127; fi
+
+      "$PYBIN" - <<'PY'
+      import sys
+      out = r"{output.taxmap}"
+      fasta = r"{input.fasta}"
+      deflines = []
+      with open(fasta, "r", encoding="utf-8", errors="ignore") as fh:
+          for line in fh:
+              if line.startswith(">"):
+                  deflines.append(line[1:].strip())
+
+      with open(out, "w") as w:
+          w.write("id\ttaxonomy\n")
+          for d in deflines:
+              parts = d.split()
+              sid = parts[0]
+              tax = d[len(sid):].strip()
+              if not tax:
+                  tax = "NA"
+              w.write(f"{sid}\t{tax}\n")
+      PY
+    """
+    
+rule silva_map_reads:
+    input:
+        idx   = rules.silva_index.output.mmi,
+        reads = rules.fastcat_filter.output.fastq   
+    output:
+        done = os.path.join(OUT, "silva/paf", ".done")
+    threads:   Rq("silva_map_reads", "threads")
+    resources:
+        mem_mb    = Rq("silva_map_reads", "mem_mb"),
+        runtime   = Rq("silva_map_reads", "runtime"),
+        partition = Rq("silva_map_reads", "partition"),
+        account   = Rq("silva_map_reads", "account")
+    container: CONTAINERS["nanoalign"]
+    params:
+        preset  = config["silva_minimap"]["preset"],
+        prim    = "--secondary=no -N 1" if config["silva_minimap"].get("primary_only", True) else "",
+    shell: r"""
+      set -euo pipefail
+      mkdir -p "{OUT}/silva/paf"
+      shopt -s nullglob
+
+      for fq in {input.reads}/*.fastq {input.reads}/*.fastq.gz; do
+        [ -e "$fq" ] || continue
+        bn=$(basename "$fq")
+        sid="${{bn%.fastq}}"; sid="${{sid%.fastq.gz}}"
+        echo "minimap2 → $sid" >&2
+        minimap2 -t {threads} -x "{params.preset}" {params.prim} \
+                 "{input.idx}" "$fq" > "{OUT}/silva/paf/${{sid}}.paf"
+      done
+
+      touch "{output.done}"
+    """
+    
+rule silva_species_tables:
+    input:
+        paf_done = rules.silva_map_reads.output.done,
+        taxmap   = rules.silva_taxmap.output.taxmap
+    output:
+        merged   = os.path.join(OUT, "silva/species", "silva_species_merged.tsv")
+    threads: Rq("silva_species_tables", "threads")
+    resources:
+        mem_mb   = Rq("silva_species_tables", "mem_mb"), 
+        runtime  = Rq("silva_species_tables", "runtime"),
+        partition= Rq("silva_species_tables", "partition"),
+        account  = Rq("silva_species_tables", "account"),
+        extra    =  R("silva_species_tables", "extra") 
+    container: CONTAINERS["cpu"]
+    params:
+        mapq_min   = config["silva_minimap"]["mapq_min"],
+        aln_min_bp = config["silva_minimap"]["aln_min_bp"]
+    shell: r"""
+      set -euo pipefail
+      mkdir -p "{OUT}/silva/species"
+      PYBIN=$(command -v python || command -v python3 || true)
+      if [ -z "$PYBIN" ]; then echo "No python in container." >&2; exit 127; fi
+
+      "$PYBIN" - <<'PY'
+      import os, glob, csv, sys, re
+      from collections import Counter, defaultdict
+
+      paf_dir   = r"{OUT}/silva/paf"
+      taxmap_fn = r"{input.taxmap}"
+      out_merged = r"{output.merged}"
+      mapq_min   = int("{params.mapq_min}")
+      aln_min_bp = int("{params.aln_min_bp}")
+
+      id2tax = {{}}
+      with open(taxmap_fn) as fh:
+          next(fh)
+          for line in fh:
+              sid, tax = line.rstrip("\n").split("\t", 1)
+              id2tax[sid] = tax
+
+      def species_from_tax(tax: str) -> str:
+          if not tax or tax == "NA":
+              return "Unassigned"
+          if ";" in tax:
+              parts = [p.strip() for p in tax.split(";") if p.strip()]
+              if parts:
+                  sp = parts[-1]
+                  # normalize underscores to spaces, strip brackets/quotes
+                  sp = re.sub(r"[_\"'\[\]]", " ", sp).strip()
+                  return sp if sp else "Unassigned"
+          # Handle GTDB-style ranks (s__/g__)
+          m = re.search(r"s__([^;]+)", tax)
+          if m:
+              return m.group(1).replace("_", " ").strip()
+          m = re.search(r"g__([^;]+)", tax)
+          if m:
+              return (m.group(1).replace("_", " ").strip() + " sp.")
+          toks = tax.split()
+          if len(toks) >= 2:
+              return (toks[-2] + " " + toks[-1]).replace("_"," ").strip()
+          return "Unassigned"
+
+      pafs = sorted(glob.glob(os.path.join(paf_dir, "*.paf")))
+      if not pafs:
+          sys.exit("No PAF files found. Did mapping run?")
+      sample2counts = {{}}
+      for paf in pafs:
+          sid = os.path.basename(paf)[:-4]
+          cnt = Counter()
+          with open(paf) as fh:
+              for line in fh:
+                  if not line or line.startswith("#"): continue
+                  cols = line.rstrip("\n").split("\t")
+                  # PAF core columns (1-based): 6=tname, 11=aln block length, 12=mapq
+                  try:
+                      tname = cols[5]
+                      aln   = int(cols[10])
+                      mapq  = int(cols[11])
+                  except Exception:
+                      continue
+                  if mapq < mapq_min or aln < aln_min_bp:
+                      continue
+                  tax = id2tax.get(tname, "NA")
+                  sp  = species_from_tax(tax)
+                  cnt[sp] += 1
+          out_tsv = os.path.join(r"{OUT}/silva/species", f"silva_species_{{sid}}.tsv")
+          with open(out_tsv, "w", newline="") as fh:
+              w = csv.writer(fh, delimiter="\t")
+              w.writerow(["Species", sid])
+              for sp, c in cnt.most_common():
+                  w.writerow([sp, c])
+          sample2counts[sid] = cnt
+
+      all_species = sorted(set().union(*[set(c) for c in sample2counts.values()])) if sample2counts else []
+      samples = sorted(sample2counts.keys())
+      with open(out_merged, "w", newline="") as fh:
+          w = csv.writer(fh, delimiter="\t")
+          w.writerow(["Species"] + samples)
+          for sp in all_species:
+              w.writerow([sp] + [sample2counts[s].get(sp, 0) for s in samples])
+      PY
+    """
+
 rule isonclust3:
     input: rules.fastcat_filter.output.fastq
     output: directory(os.path.join(TMP, "OTUs"))
@@ -585,18 +778,25 @@ rule vsearch_pool_cluster:
         partition= Rq("vsearch_pool_cluster", "partition"),
         account  = Rq("vsearch_pool_cluster", "account"),
         extra    =  R("vsearch_pool_cluster", "extra") 
+    params:
+        id_primary = lambda wc: float(config["otu_id_primary"]),   
+        id_legacy  = lambda wc: float(config["otu_id_legacy"]),    
+        min_unique = lambda wc: int(config["min_unique_size"])     
     log: os.path.join(OUT, "logs/vsearch_pool_cluster.log")
     container: CONTAINERS["cpu"]
     shell: r"""
       set -euo pipefail
       mkdir -p "$(dirname {output.drafts})" "$(dirname {output.cent99})" "{TMP}/pooled"
       cat {input}/*.fasta > {output.drafts}
+
       vsearch --derep_fulllength {output.drafts} --sizeout --relabel OTU_ --strand both \
-              --minuniquesize {MIN_UNIQUE} --threads {threads} \
+              --minuniquesize {params.min_unique} --threads {threads} \
               --output {TMP}/pooled/otus_derep.fasta
-      vsearch --cluster_fast {TMP}/pooled/otus_derep.fasta --id {config[otu_id_primary]} \
+
+      vsearch --cluster_fast {TMP}/pooled/otus_derep.fasta --id {params.id_primary} \
               --centroids {output.cent99} --threads {threads}
-      vsearch --cluster_fast {TMP}/pooled/otus_derep.fasta --id {config[otu_id_legacy]} \
+
+      vsearch --cluster_fast {TMP}/pooled/otus_derep.fasta --id {params.id_legacy} \
               --centroids {output.cent97} --threads {threads}
     """
 
@@ -677,7 +877,10 @@ rule map_r1:
     shell: r"""
         set -euo pipefail
         tmpdir="{resources.tmpdir}"
-        [ -n "$tmpdir" ] || tmpdir="/tmp"
+        if [[ -z "$tmpdir" || "$tmpdir" == "TBD" || "$tmpdir" == "<TBD>" ]]; then
+          tmpdir="/tmp"
+        fi
+        mkdir -p "$tmpdir"
       
         minimap2 -t {threads} -ax map-ont "{input.r1}" "{input.reads}" \
           | samtools sort -@ {threads} -m 1G -T "$tmpdir/map_r1" -o "{output.bam}"
@@ -763,24 +966,24 @@ rule chimera_taxonomy:
         account   = Rq("chimera_taxonomy", "account"),
         extra     = R("chimera_taxonomy", "extra")
     container: CONTAINERS["cpu"]
+    params:
+        sintax_cutoff = lambda wc: SINTAX_CUTOFF
     shell: r"""
       set -euo pipefail
       command -v vsearch >/dev/null || {{ echo "vsearch not found"; exit 127; }}
 
       mkdir -p {OUT}/otu
 
-      # --- De novo chimera filtering ---
       vsearch --uchime_denovo {input.fasta} \
         --nonchimeras {output.nonchim} \
         --chimeras {output.chimera} \
         --threads {threads}
 
-      # --- Taxonomic classification ---
       vsearch --sintax {output.nonchim} \
-        --db {input.db} \
-        --sintax_cutoff {SINTAX_CUTOFF} \
-        --tabbedout {output.sintax} \
-        --threads {threads}
+              --db {input.db} \
+              --sintax_cutoff {params.sintax_cutoff} \
+              --tabbedout {output.sintax} \
+              --threads {threads}
     """
 
 
@@ -806,25 +1009,39 @@ rule otu_alignment:
 
 
 # 3. Phylogenetic tree inference
-rule iqtree2_tree:
+rule iqtree3_tree:
     input:
         msa = rules.otu_alignment.output.msa
     output:
         tree = os.path.join(OUT, "otu/otu_tree.treefile")
-    threads: Rq("iqtree2_tree", "threads")
+    threads: Rq("iqtree3_tree", "threads")
     resources:
-        mem_mb    = Rq("iqtree2_tree", "mem_mb"),
-        runtime   = Rq("iqtree2_tree", "runtime"),
-        partition = Rq("iqtree2_tree", "partition"),
-        account   = Rq("iqtree2_tree", "account"),
-        extra     = R("iqtree2_tree", "extra")
-    log: os.path.join(OUT, "logs/iqtree2_tree.log")
-    container: CONTAINERS.get("iqtree2", CONTAINERS["cpu"])
+        mem_mb    = Rq("iqtree3_tree", "mem_mb"),
+        runtime   = Rq("iqtree3_tree", "runtime"),
+        partition = Rq("iqtree3_tree", "partition"),
+        account   = Rq("iqtree3_tree", "account"),
+        extra     = R("iqtree3_tree", "extra")
+    log: os.path.join(OUT, "logs/iqtree3_tree.log")
+    container: CONTAINERS["iqtree3"]
     shell: r"""
       set -euo pipefail
-      iqtree2 -s {input.msa} -nt AUTO -m TEST -bb 1000 -alrt 1000 \
-              -pre {OUT}/otu/otu_tree
-      test -s {output.tree}
+
+      # Ensure output/log dirs exist
+      mkdir -p "{OUT}/otu" "$(dirname "{log}")"
+
+      # Find the iqtree binary inside the container
+      IQ=$(command -v iqtree || command -v iqtree3 || command -v iqtree2 || true)
+      if [ -z "$IQ" ]; then
+        echo "No iqtree executable found in container PATH." >&2
+        exit 127
+      fi
+
+      # Run IQ-TREE
+      "$IQ" -s "{input.msa}" -nt {threads} -m TEST -bb 1000 -alrt 1000 \
+            -pre "{OUT}/otu/otu_tree" > "{log}" 2>&1
+
+      # Sanity check expected output
+      test -s "{output.tree}"
     """
     
 # 4. Per-sample read counts for each OTU
@@ -845,10 +1062,18 @@ rule otu_table_per_sample:
         map_id = lambda wc: MAP_ID,
         strand = lambda wc: STRAND
     container: CONTAINERS["cpu"]
-    shell: r"""
+    shell:
+      r"""
       set -euo pipefail
       mkdir -p {OUT}/otu/tables
       shopt -s nullglob
+
+      PYBIN=$(command -v python || command -v python3 || true)
+      if [ -z "$PYBIN" ]; then
+        echo "No python interpreter found in container." >&2
+        exit 127
+      fi
+
       for fq in {input.reads}/*.fastq; do
         sid=$(basename "$fq" .fastq)
         vsearch --usearch_global "$fq" \
@@ -858,50 +1083,55 @@ rule otu_table_per_sample:
                 --otutabout {OUT}/otu/tables/otu_table_${{sid}}.tsv \
                 --threads {threads}
       done
-      python - <<'PY'
-      import glob, os, pandas as pd
+
+      "$PYBIN" - <<'PY'
+      import glob, os, csv, sys
       out = r"{output.merged}"
-      tables = glob.glob(os.path.join(r"{OUT}", "otu", "tables", "otu_table_*.tsv"))
-      dfs = [pd.read_csv(t, sep="\t") for t in tables]
-      if not dfs:
-          raise SystemExit("No per-sample OTU tables found to merge.")
-      for d in dfs:
-          first = d.columns[0]
-          d.rename(columns=dict([(first, "OTU")]), inplace=True)
-      from functools import reduce
-      merged = reduce(lambda l, r: pd.merge(l, r, on="OTU", how="outer"), dfs).fillna(0)
-      merged.to_csv(out, sep="\t", index=False)
+      tables = sorted(glob.glob(os.path.join(r"{OUT}", "otu", "tables", "otu_table_*.tsv")))
+      if not tables:
+          sys.exit("No per-sample OTU tables found to merge.")
+
+      merged = {{}}
+      samples = []
+      headers = ["OTU"]
+      
+      for t in tables:
+          # sample id from filename
+          sid = os.path.basename(t)
+          if sid.startswith("otu_table_"):
+              sid = sid[len("otu_table_"):]
+          if sid.endswith(".tsv"):
+              sid = sid[:-4]
+          samples.append(sid)
+      
+          try:
+              with open(t, newline="") as fh:
+                  r = csv.reader(fh, delimiter="\t")
+                  try:
+                      hdr = next(r)      # skip header if present
+                  except StopIteration:
+                      # empty file -> skip
+                      sys.stderr.write(f"WARNING: empty table skipped: {{t}}\\n")
+                      continue
+                  rows = 0
+                  for row in r:
+                      if not row:
+                          continue
+                      rows += 1
+                      otu = row[0]
+                      val = row[1] if len(row) > 1 and row[1] != "" else "0"
+                      merged.setdefault(otu, {{}})[sid] = val
+                  if rows == 0:
+                      sys.stderr.write(f"WARNING: header-only table skipped: {{t}}\\n")
+          except Exception as e:
+              sys.stderr.write(f"WARNING: failed to parse {{t}}: {{e}}\\n")
+              continue
+      
+      with open(out, "w", newline="") as fh:
+          w = csv.writer(fh, delimiter="\t")
+          w.writerow(["OTU"] + samples)
+          for otu in sorted(merged.keys()):
+              w.writerow([otu] + [merged.get(otu, {{}}).get(s, "0") for s in samples])
       PY
-    """
+      """    
     
-    
-##############################################
-#  SUPPLEMENTAL RUN OF NANOASV
-#  (still not working - to test later)
-##############################################
-
-
-rule asv_nanoasv:
-    input: rules.fastcat_filter.output.fastq
-    output: os.path.join(OUT, "asv/nanoasv/phyloseq.RData")
-    threads: Rq("asv_nanoasv", "threads")
-    resources:
-        mem_mb   = Rq("asv_nanoasv", "mem_mb"), 
-        runtime  = Rq("asv_nanoasv", "runtime"),
-        partition= Rq("asv_nanoasv", "partition"),
-        account  = Rq("asv_nanoasv", "account"),
-        extra    =  R("asv_nanoasv", "extra") 
-    log: os.path.join(OUT, "logs/asv_nanoasv.log")
-    container: CONTAINERS["nanoasv"]
-    run:
-        if config.get("asv_method", None) != "nanoasv":
-            shell("mkdir -p {OUT}/asv/nanoasv && : > {OUT}/asv/nanoasv/phyloseq.RData")
-        else:
-            shell(r"""
-              set -euo pipefail
-              mkdir -p {OUT}/asv/nanoasv
-              nanoasv --dir {input} --out {OUT}/asv/nanoasv \
-                      --reference {SILVA_FASTA} \
-                      --subsampling {config[nanoasv_opts][subsample_per_barcode]} \
-                      --samtools-qual {config[nanoasv_opts][mapq]}
-            """)

@@ -49,11 +49,20 @@ container_nanoalign: "/mnt/nrdstor/richlab/shared/containers/nanoalign.sif"
 container_nanoasv: "/mnt/nrdstor/richlab/shared/containers/nanoasv.sif"
 container_dorado:  "/mnt/nrdstor/richlab/shared/containers/dorado.sif"
 container_mafft:  "/mnt/nrdstor/richlab/shared/containers/mafft.sif"
-container_iqtree2: ""  # if empty, CPU image is used
+container_iqtree3: "/mnt/nrdstor/richlab/shared/containers/iqtree3.sif"
 
 # --- References ---
 itgdb_udb:   "/mnt/nrdstor/richlab/shared/databases/itgdb_16s/taxa_itgdb.udb"
 silva_fasta: "/mnt/nrdstor/richlab/shared/databases/silva138/SILVA_138.2_SSURef_NR99_tax_silva.fasta"
+
+# --- SILVA mapping branch ---
+silva_index_name: "SILVA_138.2_SSURef_NR99.mmi"
+
+silva_minimap:
+  preset: "map-ont"
+  primary_only: true    # --secondary=no -N 1
+  mapq_min: 20          # PAF col12
+  aln_min_bp: 1200      # PAF col11 (aln block length)
 
 # --- NanoASV ---
 asv_method: none
@@ -81,9 +90,9 @@ min_qscore: 15
 # --- OTUs / mapping / taxonomy ---
 otu_id_primary: 0.99
 otu_id_legacy:  0.97
-map_id: 0.98
+map_id: 0.965
 strand: both
-sintax_cutoff: 0.8
+sintax_cutoff: 0
 min_unique_size: 1
 
 # --- SPOA guards ---
@@ -100,6 +109,10 @@ resources:
   fastcat_filter:        {threads: 4,  mem_mb: 8000,  runtime: 60,  partition: batch, account: richlab}
   nanoplot_qc:           {threads: 2,  mem_mb: 4000,  runtime: 30,  partition: batch, account: richlab}
 
+  silva_index:           {threads: 4,  mem_mb: 8000,  runtime: 60,  partition: batch, account: richlab}
+  silva_taxmap:          {threads: 1,  mem_mb: 2000,  runtime: 15,  partition: batch, account: richlab}
+  silva_map_reads:       {threads: 16, mem_mb: 16000, runtime: 180, partition: batch, account: richlab}
+  silva_species_tables:  {threads: 2,  mem_mb: 8000,  runtime: 30,  partition: batch, account: richlab}
   isonclust3:            {threads: 16, mem_mb: 32000, runtime: 240, partition: batch, account: richlab}
   spoa_consensus:        {threads: 8,  mem_mb: 16000, runtime: 240, partition: batch, account: richlab}
 
@@ -112,6 +125,6 @@ resources:
   medaka_polish:         {threads: 16, mem_mb: 16000, runtime: 240, partition: gpu,  account: richlab, extra: "--gres=gpu:1"}
   chimera_taxonomy:      {threads: 16, mem_mb: 32000, runtime: 240, partition: batch, account: richlab}
   otu_alignment:         {threads: 16, mem_mb: 32000, runtime: 240, partition: batch, account: richlab}
-  iqtree2_tree:          {threads: 16, mem_mb: 64000, runtime: 720, partition: batch, account: richlab}
+  iqtree3_tree:          {threads: 16, mem_mb: 64000, runtime: 720, partition: batch, account: richlab}
   otu_table_per_sample:  {threads: 16, mem_mb: 16000, runtime: 180, partition: batch, account: richlab}
   asv_nanoasv:           {threads: 16, mem_mb: 32000, runtime: 360, partition: batch, account: richlab}
