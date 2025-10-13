@@ -137,12 +137,12 @@ resources:
   nanoplot_qc:           {threads: 2,  mem_mb: 4000,  runtime: 30,  partition: batch, account: richlab}
   silva_index:           {threads: 4,  mem_mb: 8000,  runtime: 60,  partition: batch, account: richlab}
   silva_taxmap:          {threads: 1,  mem_mb: 2000,  runtime: 15,  partition: batch, account: richlab}
-  silva_map_reads:       {threads: 16, mem_mb: 16000, runtime: 180, partition: batch, account: richlab}
+  silva_map_reads:       {threads: 16, mem_mb: 32000, runtime: 240, partition: batch, account: richlab}
   silva_species_tables:  {threads: 2,  mem_mb: 8000,  runtime: 30,  partition: batch, account: richlab}
   isonclust3:            {threads: 16, mem_mb: 32000, runtime: 240, partition: batch, account: richlab}
   spoa_consensus:        {threads: 8,  mem_mb: 16000, runtime: 240, partition: batch, account: richlab}
   vsearch_pool_cluster:  {threads: 16, mem_mb: 32000, runtime: 300, partition: batch, account: richlab}
-  map_all_reads:         {threads: 16, mem_mb: 16000, runtime: 180, partition: batch, account: richlab}
+  map_all_reads:         {threads: 16, mem_mb: 32000, runtime: 240, partition: batch, account: richlab}
   racon_round1:          {threads: 16, mem_mb: 96000, runtime: 720, partition: batch, account: richlab}
   map_r1:                {threads: 8,  mem_mb: 16000, runtime: 180, partition: batch, account: richlab}
   racon_round2:          {threads: 8,  mem_mb: 64000, runtime: 720, partition: batch, account: richlab}

@@ -633,7 +633,7 @@ rule silva_taxmap:
       mkdir -p "$(dirname "{output.taxmap}")"
       
       PYBIN=$(command -v python || command -v python3 || true)
-      [ -n "$PYBIN" ] || { echo "No python in container." >&2; exit 127; }
+      [ -n "$PYBIN" ] || {{ echo "No python in container." >&2; exit 127; }}
       
        "$PYBIN" - <<-'PY'
 import sys
@@ -714,7 +714,7 @@ rule silva_species_tables:
       set -euo pipefail
       mkdir -p "$(dirname "{output.merged}")"
       PYBIN=$(command -v python || command -v python3 || true)
-      [ -n "$PYBIN" ] || { echo "No python in container." >&2; exit 127; }
+      [ -n "$PYBIN" ] || {{ echo "No python in container." >&2; exit 127; }}
 
       "$PYBIN" - <<-'PY'
 import os, glob, csv, sys, re
@@ -877,53 +877,58 @@ rule vsearch_pool_cluster:
         container_rev = lambda wc: config["container_rev"].get("cpu","0"),
         id_primary = lambda wc: float(config["otu_id_primary"]),   
         id_legacy  = lambda wc: float(config["otu_id_legacy"]),    
-        min_unique = lambda wc: int(config["min_unique_size"])     
+        min_unique = lambda wc: int(config["min_unique_size"]),
+        pooled_dir = os.path.join(TMP, "pooled")
     log: os.path.join(OUT, "logs/vsearch_pool_cluster.log")
     container: CONTAINERS["cpu"]
     shell: r"""
       set -euo pipefail
-      mkdir -p "$(dirname {output.drafts})" "$(dirname {output.cent99})" "{TMP}/pooled"
+      mkdir -p "$(dirname "{output.drafts}")" "$(dirname "{output.cent99}")" "{params.pooled_dir}"
       cat {input}/*.fasta > {output.drafts}
 
       vsearch --derep_fulllength {output.drafts} --sizeout --relabel OTU_ --strand both \
               --minuniquesize {params.min_unique} --threads {threads} \
-              --output {TMP}/pooled/otus_derep.fasta
+              --output {params.pooled_dir}/otus_derep.fasta
 
-      vsearch --cluster_fast {TMP}/pooled/otus_derep.fasta --id {params.id_primary} \
+      vsearch --cluster_fast {params.pooled_dir}/otus_derep.fasta --id {params.id_primary} \
               --centroids {output.cent99} --threads {threads}
 
-      vsearch --cluster_fast {TMP}/pooled/otus_derep.fasta --id {params.id_legacy} \
+      vsearch --cluster_fast {params.pooled_dir}/otus_derep.fasta --id {params.id_legacy} \
               --centroids {output.cent97} --threads {threads}
     """
 
 rule map_all_reads:
     input:
-        reads = os.path.join(TMP, "filtered"),
-        refs  = os.path.join(OUT, "otu/otus_centroids_99.fasta")
+        reads = rules.fastcat_filter.output.fastq,        
+        refs  = rules.vsearch_pool_cluster.output.cent99  
     output:
-        all_reads = os.path.join(TMP, "polished/all_reads.fastq"),
-        bam       = os.path.join(TMP, "polished/map_r0.bam")
+        all_reads = ALL_READS_FQ,   
+        bam       = MAP_BAM_R0      
     threads: Rq("map_all_reads", "threads")
     resources:
-        mem_mb   = Rq("map_all_reads", "mem_mb"), 
+        mem_mb   = Rq("map_all_reads", "mem_mb"),
         runtime  = Rq("map_all_reads", "runtime"),
         partition= Rq("map_all_reads", "partition"),
         account  = Rq("map_all_reads", "account"),
-        extra    =  R("map_all_reads", "extra") 
+        extra    = R("map_all_reads", "extra")
     log: os.path.join(OUT, "logs/map_all_reads.log")
     params:
         container_rev = lambda wc: config["container_rev"].get("nanoalign","0")
     container: CONTAINERS["nanoalign"]
     shell: r"""
-        set -euo pipefail
-        mkdir -p "$(dirname {output.all_reads})" "$(dirname {output.bam})"
-        shopt -s nullglob
-        cat "{input.reads}"/*.fastq > "{output.all_reads}"
-        minimap2 -t {threads} -ax map-ont "{input.refs}" "{output.all_reads}" \
-          | samtools sort -@ {threads} -m 2G -o "{output.bam}"
-        samtools index "{output.bam}"
-      """
-    
+      set -euo pipefail
+      mkdir -p "$(dirname "{output.all_reads}")" "$(dirname "{output.bam}")"
+
+      : > "{output.all_reads}"
+      find "{input.reads}" -maxdepth 1 -type f -name '*.fastq' -print0 \
+        | xargs -0 cat >> "{output.all_reads}"
+
+      minimap2 -t {threads} -ax map-ont "{input.refs}" "{output.all_reads}" \
+        | samtools sort -@ {threads} -m 2G -o "{output.bam}"
+
+      samtools index -@ {threads} "{output.bam}"
+    """
+
 # racon_round1
 rule racon_round1:
     input: reads = ALL_READS_FQ, bam = MAP_BAM_R0, refs = OTU_CENTROIDS_FASTA
@@ -1028,8 +1033,7 @@ rule medaka_polish:
         polish_dir    = POLISH_DIR  
     container:
         CONTAINERS["gpu"]
-    shell:
-        r"""
+    shell: r"""
         set -euo pipefail
         export OMP_NUM_THREADS=1
         mkdir -p "{params.polish_dir}/medaka_refined"
@@ -1042,7 +1046,7 @@ rule medaka_polish:
           -t {threads} \
           --bacteria
 
-        cp "{POLISH_DIR}/medaka_refined/consensus.fasta" "{output.polished}"
+        cp "{params.polish_dir}/medaka_refined/consensus.fasta" "{output.polished}"
         """
 
 ##############################################
@@ -1069,12 +1073,13 @@ rule chimera_taxonomy:
     container: CONTAINERS["cpu"]
     params:
         container_rev = lambda wc: config["container_rev"].get("cpu","0"),
-        sintax_cutoff = lambda wc: SINTAX_CUTOFF
+        sintax_cutoff = lambda wc: SINTAX_CUTOFF,
+        out_dir       = OUT
     shell: r"""
       set -euo pipefail
       command -v vsearch >/dev/null || {{ echo "vsearch not found"; exit 127; }}
 
-      mkdir -p {OUT}/otu
+      mkdir -p "{params.out_dir}/otu"
 
       vsearch --uchime_denovo {input.fasta} \
         --nonchimeras {output.nonchim} \
@@ -1127,26 +1132,23 @@ rule iqtree3_tree:
         extra     = R("iqtree3_tree", "extra")
     log: os.path.join(OUT, "logs/iqtree3_tree.log")
     params:
-        container_rev = lambda wc: config["container_rev"].get("cpu","0")
+        container_rev = lambda wc: config["container_rev"].get("cpu","0"),
+        out_dir       = OUT
     container: CONTAINERS["cpu"]
     shell: r"""
       set -euo pipefail
 
-      # Ensure output/log dirs exist
-      mkdir -p "{OUT}/otu" "$(dirname "{log}")"
+      mkdir -p "{params.out_dir}/otu" "$(dirname "{log}")"
 
-      # Find the iqtree binary inside the container
       IQ=$(command -v iqtree || command -v iqtree3 || command -v iqtree2 || true)
       if [ -z "$IQ" ]; then
         echo "No iqtree executable found in container PATH." >&2
         exit 127
       fi
 
-      # Run IQ-TREE
       "$IQ" -s "{input.msa}" -nt {threads} -m TEST -bb 1000 -alrt 1000 \
-            -pre "{OUT}/otu/otu_tree" > "{log}" 2>&1
+            -pre "{params.out_dir}/otu/otu_tree" > "{log}" 2>&1
 
-      # Sanity check expected output
       test -s "{output.tree}"
     """
     
@@ -1166,78 +1168,65 @@ rule otu_table_per_sample:
         extra     = R("otu_table_per_sample", "extra")
     params:
         container_rev = lambda wc: config["container_rev"].get("cpu","0"),
-        map_id = lambda wc: MAP_ID,
-        strand = lambda wc: STRAND
+        map_id        = lambda wc: MAP_ID,
+        strand        = lambda wc: STRAND,
+        tables_dir    = os.path.join(OUT, "otu", "tables")
     container: CONTAINERS["cpu"]
     shell:
       r"""
       set -euo pipefail
-      mkdir -p {OUT}/otu/tables
+      mkdir -p "{params.tables_dir}"
       shopt -s nullglob
 
       PYBIN=$(command -v python || command -v python3 || true)
-      if [ -z "$PYBIN" ]; then
-        echo "No python interpreter found in container." >&2
-        exit 127
-      fi
+      [ -n "$PYBIN" ] || {{ echo "No python interpreter found."; exit 127; }}
 
-      for fq in {input.reads}/*.fastq; do
+      for fq in "{input.reads}"/*.fastq; do
         sid=$(basename "$fq" .fastq)
         vsearch --usearch_global "$fq" \
-                --db {input.refs} \
+                --db "{input.refs}" \
                 --id {params.map_id} \
                 --strand {params.strand} \
-                --otutabout {OUT}/otu/tables/otu_table_${{sid}}.tsv \
+                --otutabout "{params.tables_dir}/otu_table_${{sid}}.tsv" \
                 --threads {threads}
       done
 
       "$PYBIN" - <<'PY'
-      import glob, os, csv, sys
-      out = r"{output.merged}"
-      tables = sorted(glob.glob(os.path.join(r"{OUT}", "otu", "tables", "otu_table_*.tsv")))
-      if not tables:
-          sys.exit("No per-sample OTU tables found to merge.")
+import glob, os, csv, sys
+out = r"{output.merged}"
+tables = sorted(glob.glob(os.path.join(r"{params.tables_dir}", "otu_table_*.tsv")))
+if not tables:
+    sys.exit("No per-sample OTU tables found to merge.")
 
-      merged = {{}}
-      samples = []
-      headers = ["OTU"]
-      
-      for t in tables:
-          # sample id from filename
-          sid = os.path.basename(t)
-          if sid.startswith("otu_table_"):
-              sid = sid[len("otu_table_"):]
-          if sid.endswith(".tsv"):
-              sid = sid[:-4]
-          samples.append(sid)
-      
-          try:
-              with open(t, newline="") as fh:
-                  r = csv.reader(fh, delimiter="\t")
-                  try:
-                      hdr = next(r)      # skip header if present
-                  except StopIteration:
-                      sys.stderr.write("WARNING: empty table skipped: " + t + "\n")
-                      continue
-                  rows = 0
-                  for row in r:
-                      if not row:
-                          continue
-                      rows += 1
-                      otu = row[0]
-                      val = row[1] if len(row) > 1 and row[1] != "" else "0"
-                      merged.setdefault(otu, {{}})[sid] = val
-                  if rows == 0:
-                      sys.stderr.write("WARNING: header-only table skipped: " + t + "\n")
-          except Exception as e:
-              sys.stderr.write("WARNING: failed to parse " + t + ": " + str(e) + "\n")
-              continue
-      
-      with open(out, "w", newline="") as fh:
-          w = csv.writer(fh, delimiter="\t")
-          w.writerow(["OTU"] + samples)
-          for otu in sorted(merged.keys()):
-              w.writerow([otu] + [merged.get(otu, {{}}).get(s, "0") for s in samples])
-      PY
-      """    
-    
+merged = {{}}
+samples = []
+
+for t in tables:
+    sid = os.path.basename(t)
+    if sid.startswith("otu_table_"): sid = sid[len("otu_table_"):]
+    if sid.endswith(".tsv"): sid = sid[:-4]
+    samples.append(sid)
+    try:
+        with open(t, newline="") as fh:
+            r = csv.reader(fh, delimiter="\t")
+            try:
+                next(r)
+            except StopIteration:
+                sys.stderr.write("WARNING: empty table skipped: " + t + "\n")
+                continue
+            for row in r:
+                if not row: continue
+                otu = row[0]
+                val = row[1] if len(row) > 1 and row[1] != "" else "0"
+                merged.setdefault(otu, {{}})[sid] = val
+    except Exception as e:
+        sys.stderr.write("WARNING: failed to parse " + t + ": " + str(e) + "\n")
+
+with open(out, "w", newline="") as fh:
+    w = csv.writer(fh, delimiter="\t")
+    w.writerow(["OTU"] + samples)
+    for otu in sorted(merged.keys()):
+        w.writerow([otu] + [merged.get(otu, {{}}).get(s, "0") for s in samples])
+PY
+      """
+
