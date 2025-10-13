@@ -15,9 +15,9 @@ docker push aliciamrich/nanomb-cpu:$TAG
 ------------------------
 
 module load apptainer  
-apptainer pull /mnt/nrdstor/richlab/shared/containers/nanomb.sif \
+apptainer pull nanomb.sif \
   docker://aliciamrich/nanomb-cpu:$TAG
   
-apptainer exec /mnt/nrdstor/richlab/shared/containers/nanomb.sif \
+apptainer exec nanomb.sif \
   bash -lc 'which isONclust3 isonclust3 vsearch mafft iqtree3 NanoPlot python && \
             isONclust3 --help | head -1 && iqtree3 -v | head -1'

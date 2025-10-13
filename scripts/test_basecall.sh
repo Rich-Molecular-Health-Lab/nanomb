@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=nanomb
+#SBATCH --job-name=nanomb_test
 #SBATCH --account=richlab
 #SBATCH --partition=batch
 #SBATCH --cpus-per-task=1
@@ -25,7 +25,8 @@ source profiles/hcc/env_setup.sh
 # --- Launch the workflow ---
 snakemake \
   --profile profiles/hcc \
-  --rerun-incomplete \
-  --rerun-triggers params \
-  --keep-going \
-  --printshellcmds 
+  --rerun-incomplete --rerun-triggers params \
+  --keep-going --printshellcmds \
+  "$WORK/datasets/16s/loris/basecalled/hdz3" \
+  "$WORK/datasets/16s/loris/dorado_summaries/hdz3/basecall"
+  

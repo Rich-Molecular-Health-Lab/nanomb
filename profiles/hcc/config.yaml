@@ -1,4 +1,4 @@
-# profiles/hcc/config.yml
+# profiles/hcc/config.yaml
 executor: slurm
 mode: default
 jobs: 16
@@ -12,10 +12,10 @@ slurm-logdir: "/mnt/nrdstor/richlab/shared/nanomb/.snakemake/slurm_logs"
 default-resources:
   - mem_mb=8000
   - runtime=60
-  - partition=batch
-  - account=richlab
-  - extra=""
-
+  - slurm_partition=batch
+  - slurm_account=richlab
+  - slurm_extra=""
+  
 envvars:
   - PROJ_ROOT
   - OUT_ROOT
@@ -29,4 +29,7 @@ envvars:
 latency-wait: 60
 restart-times: 1
 printshellcmds: true
-verbose: true
+verbose: false
+show-failed-logs: true   
+printshellcmds: true    
+scheduler: greedy        

@@ -43,33 +43,20 @@ layout:
   sample_routing:     "{sampleset}/samples/sample_to_dataset.tsv"
 
 # --- Containers ---
-container_cpu:     "/mnt/nrdstor/richlab/shared/containers/nanomb.sif"
-container_gpu:     "/mnt/nrdstor/richlab/shared/containers/nanombgpu.sif"
+container_rev:
+  cpu: 2025-10-11a
+  gpu: 2025-10-03b
+  nanoalign: 2025-10-05
+  dorado: 2025-10-05
+container_cpu:       "/mnt/nrdstor/richlab/shared/containers/nanomb.sif"
+container_gpu:       "/mnt/nrdstor/richlab/shared/containers/nanombgpu.sif"
 container_nanoalign: "/mnt/nrdstor/richlab/shared/containers/nanoalign.sif"
-container_nanoasv: "/mnt/nrdstor/richlab/shared/containers/nanoasv.sif"
-container_dorado:  "/mnt/nrdstor/richlab/shared/containers/dorado.sif"
-container_mafft:  "/mnt/nrdstor/richlab/shared/containers/mafft.sif"
-container_iqtree3: "/mnt/nrdstor/richlab/shared/containers/iqtree3.sif"
+container_dorado:    "/mnt/nrdstor/richlab/shared/containers/dorado.sif"
 
 # --- References ---
 itgdb_udb:   "/mnt/nrdstor/richlab/shared/databases/itgdb_16s/taxa_itgdb.udb"
 silva_fasta: "/mnt/nrdstor/richlab/shared/databases/silva138/SILVA_138.2_SSURef_NR99_tax_silva.fasta"
-
-# --- SILVA mapping branch ---
 silva_index_name: "SILVA_138.2_SSURef_NR99.mmi"
-
-silva_minimap:
-  preset: "map-ont"
-  primary_only: true    # --secondary=no -N 1
-  mapq_min: 20          # PAF col12
-  aln_min_bp: 1200      # PAF col11 (aln block length)
-
-# --- NanoASV ---
-asv_method: none
-nanoasv_bin: nanoasv
-nanoasv_opts:
-  subsample_per_barcode: 2000
-  mapq: 20
 
 # --- Dorado & Medaka ---
 dorado_model_name: "dna_r10.4.1_e8.2_400bps_sup@v5.2.0"
@@ -78,53 +65,88 @@ dorado_extra: ""
 medaka_model: "dna_r10.4.1_e8.2_400bps_sup@v5.2.0:consensus"
 barcode_kit: "SQK-16S114-24"
 
-# --- Trimming / QC ---
+# --- Dorado Trimming ---
 trim_emit_fastq: true
 trim_minlen: 1000
 trim_skip_glob: ["*NTC*", "*unclassified*"]
 
-minlength: 1300
+# --- Fastcat Filtering ---
+minlength: 1200
 maxlength: 1700
 min_qscore: 15
 
-# --- OTUs / mapping / taxonomy ---
-otu_id_primary: 0.99
+# --- Silva mapping branch ---
+silva_minimap:
+  preset: "map-ont"
+  primary_only: true    # --secondary=no -N 1
+  mapq_min: 10          # PAF col12 (plan to filter more in R if using a value </=10)
+  aln_min_bp: 1000      # PAF col11 (aln block length)
+
+# --- SPOA guards ---
+spoa_max_reads: 500
+spoa_min_reads: 1
+spoa_extra: ""
+
+# --- VSEARCH OTUs / mapping / taxonomy ---
+otu_id_primary: 0.995
 otu_id_legacy:  0.97
 map_id: 0.965
 strand: both
 sintax_cutoff: 0
 min_unique_size: 1
 
-# --- SPOA guards ---
-spoa_max_reads: 500
-spoa_min_reads: 3
-spoa_extra: ""
-
 # --- Resources (per-rule; partitions differ where needed) ---
 resources:
-  dorado_basecall: {threads: 8,  mem_mb: 32000, runtime: 180, partition: gpu,  account: richlab, extra: "--gres=gpu:1"}
-  dorado_demux:    {threads: 8,  mem_mb: 32000, runtime: 120, partition: gpu,  account: richlab, extra: "--gres=gpu:1"}
-  dorado_trim:     {threads: 8,  mem_mb: 32000, runtime: 240, partition: gpu,  account: richlab, extra: "--gres=gpu:1"}
+  dorado_basecall:
+    threads: 8
+    mem_mb: 32000
+    runtime: 180
+    slurm_partition: gpu
+    slurm_account: richlab
+    slurm_gres: "gpu:1"        
+    slurm_extra: "--constraint='gpu_v100&gpu_t4'"            
+
+  dorado_demux:
+    threads: 8
+    mem_mb: 3200
+    runtime: 120
+    slurm_partition: gpu
+    slurm_account: richlab
+    slurm_gres: "gpu:1"        
+    slurm_extra: "--constraint='gpu_v100&gpu_t4'"     
+    
+  dorado_trim:
+    threads: 8
+    mem_mb: 32000
+    runtime: 120
+    slurm_partition: gpu
+    slurm_account: richlab
+    slurm_gres: "gpu:1"        
+    slurm_extra: "--constraint='gpu_v100&gpu_t4'"     
+
+  medaka_polish:
+    threads: 8
+    mem_mb: 3200
+    runtime: 240
+    slurm_partition: gpu
+    slurm_account: richlab
+    slurm_gres: "gpu:1"        
+    slurm_extra: "--constraint='gpu_v100&gpu_t4'"     
 
   fastcat_filter:        {threads: 4,  mem_mb: 8000,  runtime: 60,  partition: batch, account: richlab}
   nanoplot_qc:           {threads: 2,  mem_mb: 4000,  runtime: 30,  partition: batch, account: richlab}
-
   silva_index:           {threads: 4,  mem_mb: 8000,  runtime: 60,  partition: batch, account: richlab}
   silva_taxmap:          {threads: 1,  mem_mb: 2000,  runtime: 15,  partition: batch, account: richlab}
   silva_map_reads:       {threads: 16, mem_mb: 16000, runtime: 180, partition: batch, account: richlab}
   silva_species_tables:  {threads: 2,  mem_mb: 8000,  runtime: 30,  partition: batch, account: richlab}
   isonclust3:            {threads: 16, mem_mb: 32000, runtime: 240, partition: batch, account: richlab}
   spoa_consensus:        {threads: 8,  mem_mb: 16000, runtime: 240, partition: batch, account: richlab}
-
   vsearch_pool_cluster:  {threads: 16, mem_mb: 32000, runtime: 300, partition: batch, account: richlab}
   map_all_reads:         {threads: 16, mem_mb: 16000, runtime: 180, partition: batch, account: richlab}
   racon_round1:          {threads: 16, mem_mb: 96000, runtime: 720, partition: batch, account: richlab}
   map_r1:                {threads: 8,  mem_mb: 16000, runtime: 180, partition: batch, account: richlab}
   racon_round2:          {threads: 8,  mem_mb: 64000, runtime: 720, partition: batch, account: richlab}
-
-  medaka_polish:         {threads: 16, mem_mb: 16000, runtime: 240, partition: gpu,  account: richlab, extra: "--gres=gpu:1"}
   chimera_taxonomy:      {threads: 16, mem_mb: 32000, runtime: 240, partition: batch, account: richlab}
   otu_alignment:         {threads: 16, mem_mb: 32000, runtime: 240, partition: batch, account: richlab}
   iqtree3_tree:          {threads: 16, mem_mb: 64000, runtime: 720, partition: batch, account: richlab}
   otu_table_per_sample:  {threads: 16, mem_mb: 16000, runtime: 180, partition: batch, account: richlab}
-  asv_nanoasv:           {threads: 16, mem_mb: 32000, runtime: 360, partition: batch, account: richlab}

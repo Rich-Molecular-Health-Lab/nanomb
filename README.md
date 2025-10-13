@@ -20,14 +20,13 @@ Execution runs entirely under Apptainer, ensuring consistent environments across
 | Basecalling | **Dorado** | `docker:nanoporetech/dorado:latest` | GPU; ONT R10.4.1 SUP model |
 | Demultiplexing | **Dorado demux** | `docker:nanoporetech/dorado:latest` | Uses ONT sample sheets |
 | Trimming | **Dorado trim** | `docker:nanoporetech/dorado:latest` | Produces per-sample FASTQs |
-| QC / Filtering | **Fastcat**, **NanoPlot** | `docker:aliciamrich/nanomb` | Q-score/length filters + QC reports |
-| Clustering | **isONclust3** | `docker:aliciamrich/nanomb` | ONT-specific clustering |
-| Consensus | **SPOA** | `docker:aliciamrich/nanomb` | Generates per-cluster consensus |
-| Pooling / OTUs | **VSEARCH** | `docker:aliciamrich/nanomb` | Dereplication & clustering at 99%/97% |
+| QC / Filtering | **Fastcat**, **NanoPlot** | `docker:aliciamrich/nanomb-cpu` | Q-score/length filters + QC reports |
+| Clustering | **isONclust3** | `docker:aliciamrich/nanomb-cpu` | ONT-specific clustering |
+| Consensus | **SPOA** | `docker:aliciamrich/nanomb-cpu` | Generates per-cluster consensus |
+| Pooling / OTUs | **VSEARCH** | `docker:aliciamrich/nanomb-cpu` | Dereplication & clustering at 99%/97% |
 | Mapping |	**Minimap2 + Samtools** |	`docker:aliciamrich/nanoalign:cpu` |	CPU-only alignment for polishing |
 | Polishing |	**Racon × 2, Medaka** |	`docker:aliciamrich/nanoalign:cpu` (Racon) → `docker:aliciamrich/nanombgpu (Medaka)` |	Sequential polish: Racon × 2 + GPU Medaka |
 | Taxonomy/Tree |	**VSEARCH SINTAX, MAFFT, IQ-TREE 2** |	docker:aliciamrich/nanomb:cpu |	Taxonomic classification + phylogeny |
-| ASV option | **nanoASV** | `docker:aliciamrich/nanoasv` | *Third-party workflow disabled by default for 16S kits* |
 
 ---
 
@@ -39,7 +38,6 @@ Execution runs entirely under Apptainer, ensuring consistent environments across
 | `nanoalign.sif` |	`/mnt/nrdstor/richlab/shared/containers/nanoalign.sif`  |	Lightweight CPU container for minimap2, samtools, and racon |
 | `nanombgpu.sif` |	`/mnt/nrdstor/richlab/shared/containers/nanombgpu.sif`  |	GPU-based Medaka polishing  |
 | `dorado.sif`  |	`/mnt/nrdstor/richlab/shared/containers/dorado.sif` |	Official ONT container for basecalling, demultiplexing, and trimming  |
-| `nanoasv.sif`  |	`/mnt/nrdstor/richlab/shared/containers/nanoasv.sif`  |	Optional ASV workflow container (disabled by default) |
 
 Note:
 : All containers are automatically pulled (or locally referenced) via Apptainer and bound to Swan’s filesystem paths configured in [`profiles/hcc/config.yaml`](profiles/hcc/config.yaml).
@@ -69,8 +67,7 @@ $WORK/datasets/16s///
 ├── raw//                # demuxed + trimmed per-run reads
 ├── tmp/                 # intermediate results
 ├── qc/                  # QC reports
-├── otu/                 # clustered OTUs, taxonomy, tree
-└── asv/                 # ASV branch (placeholder if disabled)
+└── otu/                 # clustered OTUs, taxonomy, tree
 ```
 
 ---
@@ -145,8 +142,7 @@ out_root: "$WORK/datasets/16s"
 itgdb_udb:   "/mnt/nrdstor/richlab/shared/databases/itgdb_16s/taxa_itgdb.udb"
 silva_fasta: "/mnt/nrdstor/richlab/shared/databases/silva138/SILVA_138.2_SSURef_NR99_tax_silva.fasta"
 
-# Disable ASV branch (recommended for ONT)
-asv_method: none
+
 ```
 
 ⸻
@@ -156,7 +152,6 @@ asv_method: none
 - `spoa_consensus` requires temporary files with .fastq extension
 (handled automatically in the current Snakefile).
 - Racon ≥ 1.5.0 requires .sam/.paf files for overlaps; the Snakefile automatically converts .bam → .sam via `samtools view`.
-- `nanoASV` is a third-party Snakemake pipeline currently disabled (`asv_method: none`) because ONT Dorado-trimmed reads typically fail cutadapt. If I manage to work out the bugs/mismatch in the future, then we may be able to activate this to extend funcitonality.
 - Swan's SLURM configuration requires that GPU jobs (Dorado, Medaka) run on GPU partitions — I have configured the branching automatically in each rule.
 - If you add new containers, update paths in [`config.yaml`](config/config.yaml) under `container_*`.
 - For new container builds, reference Dockerfiles under [`docker/`](docker) (e.g., `docker/nanoalign/Dockerfile`).
