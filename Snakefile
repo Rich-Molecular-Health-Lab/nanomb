@@ -633,7 +633,7 @@ rule silva_taxmap:
       mkdir -p "$(dirname "{output.taxmap}")"
       
       PYBIN=$(command -v python || command -v python3 || true)
-      [ -n "$PYBIN" ] || {{ echo "No python in container." >&2; exit 127; }}
+      if [ -z "$PYBIN" ]; then echo "No python in container." >&2; exit 127; fi
       
        "$PYBIN" - <<-'PY'
 import sys
@@ -658,8 +658,8 @@ PY
     
 rule silva_map_reads:
     input:
-        reads = directory(os.path.join(TMP, "filtered")),
-        idx   = rules.silva_index.output.mmi
+        reads = os.path.join(TMP, "filtered"),
+        idx   = os.path.join(OUT, "silva", "index", config.get("silva_index_name", "SILVA_138.2_SSURef_NR99.mmi"))
     output:
         done  = touch(os.path.join(OUT, "silva", ".map_reads.done"))
     threads:   Rq("silva_map_reads", "threads")
@@ -682,12 +682,17 @@ rule silva_map_reads:
       for fq in "{input.reads}"/*.fastq "{input.reads}"/*.fastq.gz; do
         [ -e "$fq" ] || continue
         bn=$(basename "$fq")
-        sid="${{bn%.fastq.gz}}"
-        sid="${{sid%.fastq}}"
+        sid="${{bn%.fastq.gz}}"; sid="${{sid%.fastq}}"
+        out="$paf_dir/${{sid}}.paf"
+        if [[ -s "$out" ]]; then
+          echo "skip $sid (have $out)" >&2
+          continue
+        fi
         echo "minimap2 → $sid" >&2
         minimap2 -t {threads} -x "{params.preset}" {params.prim} \
-                 "{input.idx}" "$fq" > "$paf_dir/${{sid}}.paf"
+                 "{input.idx}" "$fq" > "$out"
       done
+
 
       touch "{output.done}"
     """
@@ -700,23 +705,24 @@ rule silva_species_tables:
         merged   = os.path.join(OUT, "silva/species", "silva_species_merged.tsv")
     threads: Rq("silva_species_tables", "threads")
     resources:
-        mem_mb   = Rq("silva_species_tables", "mem_mb"), 
+        mem_mb   = Rq("silva_species_tables", "mem_mb"),
         runtime  = Rq("silva_species_tables", "runtime"),
         partition= Rq("silva_species_tables", "partition"),
         account  = Rq("silva_species_tables", "account"),
-        extra    = R("silva_species_tables", "extra") 
-    container: CONTAINERS["cpu"]
+        extra    = R("silva_species_tables", "extra")
     params:
         mapq_min   = config["silva_minimap"]["mapq_min"],
         aln_min_bp = config["silva_minimap"]["aln_min_bp"],
         container_rev = lambda wc: config["container_rev"].get("cpu","0")
+    container: CONTAINERS["cpu"]
     shell: r"""
       set -euo pipefail
       mkdir -p "$(dirname "{output.merged}")"
+
       PYBIN=$(command -v python || command -v python3 || true)
       [ -n "$PYBIN" ] || {{ echo "No python in container." >&2; exit 127; }}
 
-      "$PYBIN" - <<-'PY'
+      "$PYBIN" - <<'PY'
 import os, glob, csv, sys, re
 from collections import Counter
 
@@ -728,9 +734,9 @@ species_dir = os.path.dirname(out_merged)
 mapq_min   = int("{params.mapq_min}")
 aln_min_bp = int("{params.aln_min_bp}")
 
-id2tax = {}
-with open(taxmap_fn) as fh:
-    next(fh)
+id2tax = dict()
+with open(taxmap_fn, "r", encoding="utf-8", errors="ignore") as fh:
+    next(fh, None)
     for line in fh:
         sid, tax = line.rstrip("\n").split("\t", 1)
         id2tax[sid] = tax
@@ -758,28 +764,29 @@ pafs = sorted(glob.glob(os.path.join(paf_dir, "*.paf")))
 if not pafs:
     sys.exit("No PAF files found. Did mapping run?")
 
-sample2counts = {}
+sample2counts = dict()
 for paf in pafs:
     sid = os.path.basename(paf)[:-4]
     cnt = Counter()
-    with open(paf) as fh:
+    with open(paf, "r", encoding="utf-8", errors="ignore") as fh:
         for line in fh:
             if not line or line.startswith("#"):
                 continue
             cols = line.rstrip("\n").split("\t")
+            if len(cols) < 12:
+                continue
+            tname = cols[5]
             try:
-                tname = cols[5]
-                aln   = int(cols[10])
-                mapq  = int(cols[11])
+                aln  = int(cols[10])
+                mapq = int(cols[11])
             except Exception:
                 continue
             if mapq < mapq_min or aln < aln_min_bp:
                 continue
             sp = species_from_tax(id2tax.get(tname, "NA"))
             cnt[sp] += 1
-    # optional per-sample dump
-    out_tsv = os.path.join(species_dir, f"silva_species_{sid}.tsv")
-    with open(out_tsv, "w", newline="") as fh:
+    out_tsv = os.path.join(species_dir, "silva_species_" + sid + ".tsv")
+    with open(out_tsv, "w", newline="", encoding="utf-8") as fh:
         w = csv.writer(fh, delimiter="\t")
         w.writerow(["Species", sid])
         for sp, c in cnt.most_common():
@@ -788,11 +795,13 @@ for paf in pafs:
 
 all_species = sorted(set().union(*(set(c) for c in sample2counts.values()))) if sample2counts else []
 samples = sorted(sample2counts.keys())
-with open(out_merged, "w", newline="") as fh:
+
+with open(out_merged, "w", newline="", encoding="utf-8") as fh:
     w = csv.writer(fh, delimiter="\t")
     w.writerow(["Species"] + samples)
     for sp in all_species:
-        w.writerow([sp] + [sample2counts[s].get(sp, 0) for s in samples])
+        row = [sample2counts[s][sp] if sp in sample2counts[s] else 0 for s in samples]
+        w.writerow([sp] + row)
 PY
     """
     
@@ -824,7 +833,8 @@ rule isonclust3:
 
 rule spoa_consensus:
     input: rules.isonclust3.output
-    output: directory(os.path.join(TMP, "consensus_drafts"))
+    output:
+        done = touch(os.path.join(TMP, "consensus_drafts/.done"))
     threads: Rq("spoa_consensus", "threads")
     resources:
         mem_mb   = Rq("spoa_consensus", "mem_mb"), 
@@ -833,35 +843,61 @@ rule spoa_consensus:
         account  = Rq("spoa_consensus", "account"),
         extra    =  R("spoa_consensus", "extra") 
     params:
-        max_reads = int(config.get("spoa_max_reads", 500)),
-        min_reads = int(config.get("spoa_min_reads", 3)),
-        extra     = lambda wc: config.get("spoa_extra",""),
+        outdir     = os.path.join(TMP, "consensus_drafts"),
+        max_reads  = int(config.get("spoa_max_reads", 500)),
+        min_reads  = int(config.get("spoa_min_reads", 3)),
+        extra      = lambda wc: config.get("spoa_extra",""),
         container_rev = lambda wc: config["container_rev"].get("cpu","0")
     log: os.path.join(OUT, "logs/spoa_consensus.log")
     container: CONTAINERS["cpu"]
     shell: r"""
       set -euo pipefail
-      mkdir -p {output}
-      find {input} -type f -path "*/clustering/fastq_files/*.fastq" | while read -r fq; do
+      mkdir -p "{params.outdir}" "$(dirname "{log}")"
+      exec > "{log}" 2>&1
+      
+      shopt -s nullglob
+      mapfile -t fq_list < <(find "{input}" -type f -path "*/clustering/fastq_files/*.fastq" | sort)
+      
+      for fq in "${{fq_list[@]}}"; do
         sample=$(basename "$(dirname "$(dirname "$fq")")")
         cid=$(basename "$fq" .fastq)
-        out="{output}/${{sample}}_${{cid}}.fasta"
-        n=$(awk 'END{{print NR/4}}' "$fq")
-        if (( n < {params.min_reads} )); then continue; fi
+        out="{params.outdir}/${{sample}}_${{cid}}.fasta"
+
+        if [[ -s "$out" ]]; then
+          echo "skip $out" >&2
+          continue
+        fi
+
+        n=$(awk 'END{{print int(NR/4)}}' "$fq")
+        if (( n < {params.min_reads} )); then
+          echo "skip (too few reads: $n) → $out" >&2
+          continue
+        fi
+
         tmpd=$(mktemp -d)
-        tmpf="$tmpd/reads.fastq"  
+        tmpf="$tmpd/reads.fastq"
+
         if (( n > {params.max_reads} )); then
           awk -v m={params.max_reads} 'NR%4==1{{c++}} c<=m{{print}}' "$fq" > "$tmpf"
         else
           cp "$fq" "$tmpf"
         fi
-        spoa {params.extra} "$tmpf" > "$out"
+
+        if spoa {params.extra} "$tmpf" > "$out.tmp"; then
+          mv -f "$out.tmp" "$out"
+        else
+          echo "spoa failed on $fq" >&2
+          rm -f "$out.tmp"
+        fi
         rm -rf "$tmpd"
       done
+
+      : > "{output.done}"
     """
     
 rule vsearch_pool_cluster:
-    input: rules.spoa_consensus.output
+    input: 
+      done = rules.spoa_consensus.output.done
     output:
         drafts = os.path.join(TMP, "pooled/all_draft_otus.fasta"),
         cent99 = os.path.join(OUT, "otu/otus_centroids_99.fasta"),
@@ -874,27 +910,39 @@ rule vsearch_pool_cluster:
         account  = Rq("vsearch_pool_cluster", "account"),
         extra    =  R("vsearch_pool_cluster", "extra") 
     params:
+        consdir    = os.path.join(TMP, "consensus_drafts"),
+        pooldir    = os.path.join(TMP, "pooled"),
         container_rev = lambda wc: config["container_rev"].get("cpu","0"),
-        id_primary = lambda wc: float(config["otu_id_primary"]),   
-        id_legacy  = lambda wc: float(config["otu_id_legacy"]),    
-        min_unique = lambda wc: int(config["min_unique_size"]),
-        pooled_dir = os.path.join(TMP, "pooled")
+        id_primary = lambda wc: float(config["otu_id_primary"]),
+        id_legacy  = lambda wc: float(config["otu_id_legacy"]),
+        min_unique = lambda wc: int(config["min_unique_size"])
     log: os.path.join(OUT, "logs/vsearch_pool_cluster.log")
     container: CONTAINERS["cpu"]
     shell: r"""
       set -euo pipefail
-      mkdir -p "$(dirname "{output.drafts}")" "$(dirname "{output.cent99}")" "{params.pooled_dir}"
-      cat {input}/*.fasta > {output.drafts}
+      mkdir -p "{params.pooldir}" "$(dirname "{output.cent99}")" "$(dirname "{log}")"
+      exec > "{log}" 2>&1
 
-      vsearch --derep_fulllength {output.drafts} --sizeout --relabel OTU_ --strand both \
+      shopt -s nullglob
+      files=( "{params.consdir}"/*.fasta )
+      if (( ${{#files[@]}} == 0 )); then
+        echo "No consensus FASTA files found in {params.consdir}" >&2
+        exit 1
+      fi
+
+      cat "${{files[@]}}" > "{output.drafts}"
+
+      command -v vsearch >/dev/null || {{ echo "vsearch not found"; exit 127; }}
+
+      vsearch --derep_fulllength "{output.drafts}" --sizeout --relabel OTU_ --strand both \
               --minuniquesize {params.min_unique} --threads {threads} \
-              --output {params.pooled_dir}/otus_derep.fasta
+              --output "{params.pooldir}/otus_derep.fasta"
 
-      vsearch --cluster_fast {params.pooled_dir}/otus_derep.fasta --id {params.id_primary} \
-              --centroids {output.cent99} --threads {threads}
+      vsearch --cluster_fast "{params.pooldir}/otus_derep.fasta" --id {params.id_primary} \
+              --centroids "{output.cent99}" --threads {threads}
 
-      vsearch --cluster_fast {params.pooled_dir}/otus_derep.fasta --id {params.id_legacy} \
-              --centroids {output.cent97} --threads {threads}
+      vsearch --cluster_fast "{params.pooldir}/otus_derep.fasta" --id {params.id_legacy} \
+              --centroids "{output.cent97}" --threads {threads}
     """
 
 rule map_all_reads:

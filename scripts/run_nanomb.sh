@@ -27,5 +27,6 @@ snakemake \
   --profile profiles/hcc \
   --rerun-incomplete \
   --rerun-triggers params \
+  --restart-times 2 \
   --keep-going \
   --printshellcmds 
