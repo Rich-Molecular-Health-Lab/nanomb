@@ -130,8 +130,7 @@ resources:
     runtime: 240
     slurm_partition: gpu
     slurm_account: richlab
-    slurm_gres: "gpu:1"        
-    slurm_extra: "--constraint='gpu_v100&gpu_t4'"     
+    slurm_extra: "--gres=gpu:1"      
 
   fastcat_filter:        {threads: 4,  mem_mb: 8000,  runtime: 60,  partition: batch, account: richlab}
   nanoplot_qc:           {threads: 2,  mem_mb: 4000,  runtime: 30,  partition: batch, account: richlab}
