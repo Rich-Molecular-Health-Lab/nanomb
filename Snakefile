@@ -128,12 +128,12 @@ BASECALL_SUMMARY_T  = os.path.join(SUMMARY_DIR_T, "basecall", "{run}_basecall_su
 DEMUX_SUMMARY_T     = os.path.join(SUMMARY_DIR_T, "demux", "{run}_barcoding_summary.txt")
 DEMUX_DONE_T        = os.path.join(DEMUX_DIR_T, ".done")
 
-ITGDB_UDB   = _expand(config.get("itgdb_udb", ""))
-SILVA_FASTA = _expand(config.get("silva_fasta", ""))
+ITGDB_UDB   = _expand(config["itgdb"]["sintax_udb"])
+ITGDB_FASTA = _expand(config["itgdb"]["seq_fasta"])     
+ITGDB_TAX   = _expand(config["itgdb"]["tax_tsv"])
 
 MAP_ID  = float(config.get("map_id", 0.98))
 STRAND  = config.get("strand", "both")
-NANOASV = config.get("nanoasv_bin", "nanoasv")
 SINTAX_CUTOFF = float(config.get("sintax_cutoff", 0.8))
 MIN_UNIQUE = int(config.get("min_unique_size", 1))
 
@@ -221,7 +221,7 @@ _final_targets = (
         os.path.join(OUT, "otu/otus_taxonomy.sintax"),
         os.path.join(OUT, "otu/otus_centroids_99.fasta"),
         os.path.join(OUT, "otu/otus_centroids_97.fasta"),
-        os.path.join(OUT, "silva/species/silva_species_merged.tsv"),  
+        os.path.join(OUT, "itgdb/species/itgdb_species_merged.tsv"),  
       ]
     + _asv
 )
@@ -237,8 +237,8 @@ rule preflight:
         if not input.db or not os.path.exists(input.db) or os.path.getsize(input.db) == 0:
             raise WorkflowError(f"SINTAX DB missing/empty: {input.db!r}")
 
-        if not SILVA_FASTA or not os.path.exists(SILVA_FASTA) or os.path.getsize(SILVA_FASTA) == 0:
-            raise WorkflowError(f"SILVA reference missing/empty: {SILVA_FASTA!r}")
+        if not ITGDB_FASTA or not os.path.exists(ITGDB_FASTA) or os.path.getsize(ITGDB_FASTA) == 0:
+            raise WorkflowError(f"itgdb reference missing/empty: {ITGDB_FASTA!r}")
 
         must_have = ("cpu","gpu","nanoalign","dorado")
         for k in must_have:
@@ -592,39 +592,36 @@ rule nanoplot_qc:
     """
     
 # ---------------- OTU branch ----------------
-rule silva_index:
-    input:
-        fasta = SILVA_FASTA
-    output:
-        mmi = os.path.join(OUT, "silva/index", config.get("silva_index_name", "SILVA_138.2_SSURef_NR99.mmi"))
-    threads: Rq("silva_index", "threads")
+rule itgdb_index:
+    input:  fasta = ITGDB_FASTA
+    output: mmi   = os.path.join(OUT, "itgdb/index", "ITGDB_16S.mmi")
+    threads: Rq("itgdb_index", "threads")
     resources:
-        mem_mb   = Rq("silva_index", "mem_mb"), 
-        runtime  = Rq("silva_index", "runtime"),
-        partition= Rq("silva_index", "partition"),
-        account  = Rq("silva_index", "account"),
-        extra    =  R("silva_index", "extra") 
+        mem_mb   = Rq("itgdb_index", "mem_mb"), 
+        runtime  = Rq("itgdb_index", "runtime"),
+        partition= Rq("itgdb_index", "partition"),
+        account  = Rq("itgdb_index", "account"),
+        extra    =  R("itgdb_index", "extra") 
     params:
         container_rev = lambda wc: config["container_rev"].get("nanoalign","0")
-    container: CONTAINERS["nanoalign"]  
+    container: CONTAINERS["nanoalign"]
     shell: r"""
       set -euo pipefail
       mkdir -p "$(dirname "{output.mmi}")"
       minimap2 -d "{output.mmi}" "{input.fasta}"
     """
     
-rule silva_taxmap:
-    input:
-        fasta = SILVA_FASTA
+rule itgdb_taxmap:
+    input:  tax = ITGDB_TAX
     output:
-        taxmap = os.path.join(OUT, "silva", "silva_taxmap.tsv")
-    threads: Rq("silva_taxmap", "threads")
+        taxmap = os.path.join(OUT, "itgdb", "itgdb_taxmap.tsv")
+    threads: Rq("itgdb_taxmap", "threads")
     resources:
-        mem_mb   = Rq("silva_taxmap", "mem_mb"), 
-        runtime  = Rq("silva_taxmap", "runtime"),
-        partition= Rq("silva_taxmap", "partition"),
-        account  = Rq("silva_taxmap", "account"),
-        extra    =  R("silva_taxmap", "extra") 
+        mem_mb   = Rq("itgdb_taxmap", "mem_mb"), 
+        runtime  = Rq("itgdb_taxmap", "runtime"),
+        partition= Rq("itgdb_taxmap", "partition"),
+        account  = Rq("itgdb_taxmap", "account"),
+        extra    =  R("itgdb_taxmap", "extra") 
     params:
         container_rev = lambda wc: config["container_rev"].get("cpu","0")
     container: CONTAINERS["cpu"]         
@@ -632,46 +629,31 @@ rule silva_taxmap:
       set -euo pipefail
       mkdir -p "$(dirname "{output.taxmap}")"
       
-      PYBIN=$(command -v python || command -v python3 || true)
-      if [ -z "$PYBIN" ]; then echo "No python in container." >&2; exit 127; fi
-      
-       "$PYBIN" - <<-'PY'
-import sys
-out = r"{output.taxmap}"
-fasta = r"{input.fasta}"
-
-deflines = []
-with open(fasta, "r", encoding="utf-8", errors="ignore") as fh:
-    for line in fh:
-        if line.startswith(">"):
-            deflines.append(line[1:].strip())
-
-with open(out, "w", encoding="utf-8") as w:
-    w.write("id\ttaxonomy\n")
-    for d in deflines:
-        parts = d.split()
-        sid = parts[0]
-        tax = d[len(sid):].strip() or "NA"
-        w.write(sid + "\t" + tax + "\n")
-PY
+      awk -F'\t' '
+        NR==1 && tolower($1)=="id" {{ print; next }}
+        BEGIN{{ OFS="\t"; print "id","taxonomy" }}
+        NR==1 && ($1=="id" || $1 ~ /^#/) {{ next }}   
+        $1 ~ /^#/                  {{ next }}         
+        NF >= 2                    {{ print $1, $2 }} 
+      ' "{input.tax}" > "{output.taxmap}"
       """
     
-rule silva_map_reads:
+rule itgdb_map_reads:
     input:
         reads = os.path.join(TMP, "filtered"),
-        idx   = os.path.join(OUT, "silva", "index", config.get("silva_index_name", "SILVA_138.2_SSURef_NR99.mmi"))
+        idx   = rules.itgdb_index.output.mmi
     output:
-        done  = touch(os.path.join(OUT, "silva", ".map_reads.done"))
-    threads:   Rq("silva_map_reads", "threads")
+        done  = touch(os.path.join(OUT, "itgdb", ".map_reads.done"))
+    threads:   Rq("itgdb_map_reads", "threads")
     resources:
-        mem_mb    = Rq("silva_map_reads", "mem_mb"),
-        runtime   = Rq("silva_map_reads", "runtime"),
-        partition = Rq("silva_map_reads", "partition"),
-        account   = Rq("silva_map_reads", "account")
+        mem_mb    = Rq("itgdb_map_reads", "mem_mb"),
+        runtime   = Rq("itgdb_map_reads", "runtime"),
+        partition = Rq("itgdb_map_reads", "partition"),
+        account   = Rq("itgdb_map_reads", "account")
     container: CONTAINERS["nanoalign"]
     params:
-        preset  = "map-ont",
-        prim    = "--secondary=no -N 1" if config["silva_minimap"].get("primary_only", True) else "",
+        preset  = config.get("itgdb_minimap", {}).get("preset", "map-ont"),
+        prim    = "--secondary=no -N 1" if config.get("itgdb_minimap", {}).get("primary_only", True) else "",
         container_rev = lambda wc: config["container_rev"].get("nanoalign","0")
     shell: r"""
       set -euo pipefail
@@ -697,22 +679,22 @@ rule silva_map_reads:
       touch "{output.done}"
     """
     
-rule silva_species_tables:
+rule itgdb_species_tables:
     input:
-        paf_done = rules.silva_map_reads.output.done,
-        taxmap   = rules.silva_taxmap.output.taxmap
+        paf_done = rules.itgdb_map_reads.output.done,
+        taxmap   = rules.itgdb_taxmap.output.taxmap
     output:
-        merged   = os.path.join(OUT, "silva/species", "silva_species_merged.tsv")
-    threads: Rq("silva_species_tables", "threads")
+        merged   = os.path.join(OUT, "itgdb/species", "itgdb_species_merged.tsv")
+    threads: Rq("itgdb_species_tables", "threads")
     resources:
-        mem_mb   = Rq("silva_species_tables", "mem_mb"),
-        runtime  = Rq("silva_species_tables", "runtime"),
-        partition= Rq("silva_species_tables", "partition"),
-        account  = Rq("silva_species_tables", "account"),
-        extra    = R("silva_species_tables", "extra")
+        mem_mb   = Rq("itgdb_species_tables", "mem_mb"),
+        runtime  = Rq("itgdb_species_tables", "runtime"),
+        partition= Rq("itgdb_species_tables", "partition"),
+        account  = Rq("itgdb_species_tables", "account"),
+        extra    = R("itgdb_species_tables", "extra")
     params:
-        mapq_min   = config["silva_minimap"]["mapq_min"],
-        aln_min_bp = config["silva_minimap"]["aln_min_bp"],
+        mapq_min   = config["itgdb_minimap"]["mapq_min"],
+        aln_min_bp = config["itgdb_minimap"]["aln_min_bp"],
         container_rev = lambda wc: config["container_rev"].get("cpu","0")
     container: CONTAINERS["cpu"]
     shell: r"""
@@ -785,7 +767,7 @@ for paf in pafs:
                 continue
             sp = species_from_tax(id2tax.get(tname, "NA"))
             cnt[sp] += 1
-    out_tsv = os.path.join(species_dir, "silva_species_" + sid + ".tsv")
+    out_tsv = os.path.join(species_dir, "itgdb_species_" + sid + ".tsv")
     with open(out_tsv, "w", newline="", encoding="utf-8") as fh:
         w = csv.writer(fh, delimiter="\t")
         w.writerow(["Species", sid])
@@ -924,25 +906,46 @@ rule vsearch_pool_cluster:
       exec > "{log}" 2>&1
 
       shopt -s nullglob
-      files=( "{params.consdir}"/*.fasta )
+      files=( "{params.consdir}"/*.fasta "{params.consdir}"/*.fa "{params.consdir}"/*.fna )
+      
       if (( ${{#files[@]}} == 0 )); then
-        echo "No consensus FASTA files found in {params.consdir}" >&2
-        exit 1
+        echo "[vsearch_pool_cluster] No consensus FASTA files in {params.consdir}" >&2
+        : > "{output.drafts}"; : > "{output.cent99}"; : > "{output.cent97}"
+        exit 0
       fi
 
       cat "${{files[@]}}" > "{output.drafts}"
+      
+      if ! grep -q '^>' "{output.drafts}"; then
+        echo "[vsearch_pool_cluster] Drafts contain 0 sequences." >&2
+        : > "{output.cent99}"; : > "{output.cent97}"
+        exit 0
+      fi
 
       command -v vsearch >/dev/null || {{ echo "vsearch not found"; exit 127; }}
 
-      vsearch --derep_fulllength "{output.drafts}" --sizeout --relabel OTU_ --strand both \
+      vsearch --derep_fulllength "{output.drafts}" \
+              --sizeout --relabel OTU_ --strand both \
               --minuniquesize {params.min_unique} --threads {threads} \
               --output "{params.pooldir}/otus_derep.fasta"
 
-      vsearch --cluster_fast "{params.pooldir}/otus_derep.fasta" --id {params.id_primary} \
-              --centroids "{output.cent99}" --threads {threads}
+      if ! grep -q '^>' "{params.pooldir}/otus_derep.fasta"; then
+        echo "[vsearch_pool_cluster] Derep produced 0 sequences (minuniquesize={params.min_unique}). Passing drafts through as centroids." >&2
+        cp "{output.drafts}" "{output.cent99}"
+        cp "{output.drafts}" "{output.cent97}"
+      else
+        vsearch --cluster_fast "{params.pooldir}/otus_derep.fasta" \
+                --id {params.id_primary} --strand both \
+                --centroids "{output.cent99}" --threads {threads}
 
-      vsearch --cluster_fast "{params.pooldir}/otus_derep.fasta" --id {params.id_legacy} \
-              --centroids "{output.cent97}" --threads {threads}
+        vsearch --cluster_fast "{params.pooldir}/otus_derep.fasta" \
+                --id {params.id_legacy}  --strand both \
+                --centroids "{output.cent97}" --threads {threads}"
+      fi
+      
+      for f in "{output.drafts}" "{params.pooldir}/otus_derep.fasta" "{output.cent99}" "{output.cent97}"; do
+        printf "[counts] %-40s %6d\n" "$f" "$(grep -c '^>' "$f" || echo 0)"
+      done
     """
 
 rule map_all_reads:
@@ -968,6 +971,29 @@ rule map_all_reads:
       mkdir -p "$(dirname "{output.all_reads}")" "$(dirname "{output.bam}")"
 
       : > "{output.all_reads}"
+      find "{input.filtered}" -maxdepth 1 -type f \
+        \( -name '*.fastq' -o -name '*.fastq.gz' \) -print0 \
+      | xargs -0 -r -I{} bash -c '
+        fq="$1"
+        if [[ "$fq" == *.gz ]]; then zcat "$fq"; else cat "$fq"; fi
+      ' _ {} >> "{output.all_reads}"
+      
+      if ! grep -q "^@" "{output.all_reads}"; then
+        echo "[map_all_reads] No reads after filtering; creating header-only BAM." >&2
+        samtools faidx "{input.ref}"
+        awk 'BEGIN{OFS="\t"}{print "@SQ\tSN:"$1"\tLN:"$2}' "{input.ref}.fai" > "{output.bam}.header.sam"
+        samtools view -b -o "{output.bam}" "{output.bam}.header.sam"
+        rm -f "{output.bam}.header.sam"
+        samtools index -@ {threads} "{output.bam}"
+        exit 0
+      fi
+      
+      # Normal mapping path
+      minimap2 -t {threads} -ax map-ont "{input.ref}" "{output.all_reads}" \
+        | samtools sort -@ {threads} -m 2G -o "{output.bam}"
+      samtools index -@ {threads} "{output.bam}"
+
+      : > "{output.all_reads}"
       find "{input.reads}" -maxdepth 1 -type f -name '*.fastq' -print0 \
         | xargs -0 cat >> "{output.all_reads}"
 
@@ -979,8 +1005,12 @@ rule map_all_reads:
 
 # racon_round1
 rule racon_round1:
-    input: reads = ALL_READS_FQ, bam = MAP_BAM_R0, refs = OTU_CENTROIDS_FASTA
-    output: r1 = R1_FASTA
+    input: 
+      reads = rules.map_all_reads.output.all_reads, 
+      bam   = rules.map_all_reads.output.bam, 
+      refs  = rules.vsearch_pool_cluster.output.cent99  
+    output: 
+      r1 = R1_FASTA
     threads: Rq("racon_round1", "threads")
     resources:
         mem_mb   = Rq("racon_round1", "mem_mb"), 
@@ -1001,19 +1031,50 @@ rule racon_round1:
         echo "refs:  {input.refs}"  >&2
         echo "threads: {threads}"   >&2
 
-        tmp_sam=$(mktemp --suffix=.sam)
-        trap 'rm -f "$tmp_sam"' EXIT
-
-        samtools view -@ {threads} -h "{input.bam}" -o "$tmp_sam"
-
-        racon -t {threads} "{input.reads}" "$tmp_sam" "{input.refs}" > "{output.r1}"
-
+        refs=$(readlink -f "{input.refs}")
+        if ! grep -q '^>' "$refs"; then
+          echo "[racon_round1] Reference FASTA has no sequences; emitting empty polished file." >&2
+          : > "{output.r1}"
+          exit 0
+        fi
+        
+        if ! [ -s "{input.reads}" ] || ! grep -q '^@' "{input.reads}"; then
+          echo "[racon_round1] No reads; copying references to polished output." >&2
+          cp "$refs" "{output.r1}"
+          exit 0
+        fi
+        
+        if ! samtools quickcheck -v "{input.bam}"; then
+          echo "[racon_round1] BAM failed quickcheck; copying references." >&2
+          cp "$refs" "{output.r1}"
+          exit 0
+        fi
+        if [ "$(samtools view -c "{input.bam}")" -eq 0 ]; then
+          echo "[racon_round1] BAM has zero alignments; copying references." >&2
+          cp "$refs" "{output.r1}"
+          exit 0
+        fi
+        
+        tmp_paf=$(mktemp --suffix=.paf)
+        trap 'rm -f "$tmp_paf"' EXIT
+        minimap2 -t {threads} -x map-ont "$refs" "{input.reads}" > "$tmp_paf"
+        
+        if ! [ -s "$tmp_paf" ]; then
+          echo "[racon_round1] No overlaps in PAF; copying references." >&2
+          cp "$refs" "{output.r1}"
+          exit 0
+        fi
+        
+        racon -t {threads} "{input.reads}" "$tmp_paf" "$refs" > "{output.r1}"
         test -s "{output.r1}" && grep -q "^>" "{output.r1}"
     """
     
 rule map_r1:
-    input: reads = ALL_READS_FQ, r1 = R1_FASTA
-    output: bam = MAP_BAM_R1
+    input: 
+      reads = rules.map_all_reads.output.all_reads, 
+      r1    = rules.racon_round1.output.r1
+    output: 
+      bam = MAP_BAM_R1
     threads: Rq("map_r1", "threads")
     resources:
         mem_mb   = Rq("map_r1", "mem_mb"), 
@@ -1039,8 +1100,12 @@ rule map_r1:
     
 # racon_round2
 rule racon_round2:
-    input: reads = ALL_READS_FQ, bam = MAP_BAM_R1, r1 = R1_FASTA
-    output: r2 = R2_FASTA
+    input: 
+      reads = rules.map_all_reads.output.all_reads, 
+      bam   = rules.map_r1.output.bam, 
+      r1    = rules.racon_round1.output.r1
+    output: 
+      r2 = R2_FASTA
     threads: Rq("racon_round2", "threads")
     resources:
         mem_mb   = Rq("racon_round2", "mem_mb"), 
@@ -1064,8 +1129,8 @@ rule racon_round2:
     
 rule medaka_polish:
     input:
-        reads = ALL_READS_FQ,
-        draft = R2_FASTA
+        reads = rules.map_all_reads.output.all_reads,
+        draft = rules.racon_round2.output.r2
     output:
         polished = POLISHED
     threads: Rq("medaka_polish", "threads")
@@ -1105,7 +1170,7 @@ rule medaka_polish:
 # 1. Identify chimeras + assign taxonomy
 rule chimera_taxonomy:
     input:
-        fasta = POLISHED,
+        fasta = rules.medaka_polish.output.polished,
         db    = ITGDB_UDB
     output:
         nonchim = os.path.join(OUT, "otu/otus_clean.fasta"),
@@ -1123,22 +1188,28 @@ rule chimera_taxonomy:
         container_rev = lambda wc: config["container_rev"].get("cpu","0"),
         sintax_cutoff = lambda wc: SINTAX_CUTOFF,
         out_dir       = OUT
+    log:
+        os.path.join(OUT, "logs/chimera_taxonomy.log")
     shell: r"""
       set -euo pipefail
       command -v vsearch >/dev/null || {{ echo "vsearch not found"; exit 127; }}
 
       mkdir -p "{params.out_dir}/otu"
 
-      vsearch --uchime_denovo {input.fasta} \
-        --nonchimeras {output.nonchim} \
-        --chimeras {output.chimera} \
-        --threads {threads}
-
-      vsearch --sintax {output.nonchim} \
-              --db {input.db} \
-              --sintax_cutoff {params.sintax_cutoff} \
-              --tabbedout {output.sintax} \
+      echo "== Chimera detection (de novo) =="
+      vsearch --uchime3_denovo "{input.fasta}" \
+              --nonchimeras "{output.nonchim}" \
+              --chimeras "{output.chimera}" \
               --threads {threads}
+
+      echo "== Taxonomy (SINTAX with ITGDB) =="
+      vsearch --sintax "{output.nonchim}" \
+              --db "{input.db}" \
+              --sintax_cutoff {params.sintax_cutoff} \
+              --strand both \
+              --tabbedout "{output.sintax}" \
+              --threads {threads}
+              
     """
 
 
@@ -1254,27 +1325,22 @@ for t in tables:
     if sid.startswith("otu_table_"): sid = sid[len("otu_table_"):]
     if sid.endswith(".tsv"): sid = sid[:-4]
     samples.append(sid)
-    try:
-        with open(t, newline="") as fh:
-            r = csv.reader(fh, delimiter="\t")
-            try:
-                next(r)
-            except StopIteration:
-                sys.stderr.write("WARNING: empty table skipped: " + t + "\n")
-                continue
-            for row in r:
-                if not row: continue
-                otu = row[0]
-                val = row[1] if len(row) > 1 and row[1] != "" else "0"
-                merged.setdefault(otu, {{}})[sid] = val
-    except Exception as e:
-        sys.stderr.write("WARNING: failed to parse " + t + ": " + str(e) + "\n")
+    
+    with open(t, newline="") as fh:
+        r = csv.reader(fh, delimiter="\t")
+        header = next(r, None)  # discard header from vsearch
+        for row in r:
+            if not row: continue
+            otu = row[0]
+            val = sum(to_int(x) for x in row[1:])
+            d = merged.setdefault(otu, {{}})
+            d[sid] = d.get(sid, 0) + val
 
 with open(out, "w", newline="") as fh:
     w = csv.writer(fh, delimiter="\t")
     w.writerow(["OTU"] + samples)
-    for otu in sorted(merged.keys()):
-        w.writerow([otu] + [merged.get(otu, {{}}).get(s, "0") for s in samples])
+    for otu in sorted(merged):
+        w.writerow([otu] + [merged[otu].get(s, 0) for s in samples])
 PY
       """
 

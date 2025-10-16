@@ -1,5 +1,5 @@
 # --- Identity ---
-project: culi_16S
+project: culi_16s
 sampleset: loris
 dataset:   culi
 runs:
@@ -53,10 +53,14 @@ container_gpu:       "/mnt/nrdstor/richlab/shared/containers/nanombgpu.sif"
 container_nanoalign: "/mnt/nrdstor/richlab/shared/containers/nanoalign.sif"
 container_dorado:    "/mnt/nrdstor/richlab/shared/containers/dorado.sif"
 
+
 # --- References ---
-itgdb_udb:   "/mnt/nrdstor/richlab/shared/databases/itgdb_16s/taxa_itgdb.udb"
-silva_fasta: "/mnt/nrdstor/richlab/shared/databases/silva138/SILVA_138.2_SSURef_NR99_tax_silva.fasta"
-silva_index_name: "SILVA_138.2_SSURef_NR99.mmi"
+
+itgdb:
+  seq_fasta:  "/mnt/nrdstor/richlab/shared/databases/itgdb_16s/taxa_itgdb_seq.fasta"
+  tax_tsv:    "/mnt/nrdstor/richlab/shared/databases/itgdb_16s/taxa_itgdb_taxa.txt"
+  sintax_udb: "/mnt/nrdstor/richlab/shared/databases/itgdb_16s/taxa_itgdb.udb"
+  index_name: "ITGDB_16S.mmi"
 
 # --- Dorado & Medaka ---
 dorado_model_name: "dna_r10.4.1_e8.2_400bps_sup@v5.2.0"
@@ -75,69 +79,41 @@ minlength: 1200
 maxlength: 1700
 min_qscore: 15
 
-# --- Silva mapping branch ---
-silva_minimap:
+# --- ITGDB mapping branch ---
+itgdb_minimap:
   preset: "map-ont"
   primary_only: true    # --secondary=no -N 1
   mapq_min: 10          # PAF col12 (plan to filter more in R if using a value </=10)
   aln_min_bp: 1000      # PAF col11 (aln block length)
 
 # --- SPOA guards ---
-spoa_max_reads: 500
-spoa_min_reads: 1
+spoa_max_reads: 400
+spoa_min_reads: 3
 spoa_extra: ""
 
 # --- VSEARCH OTUs / mapping / taxonomy ---
 otu_id_primary: 0.995
 otu_id_legacy:  0.97
-map_id: 0.965
+map_id: 0.90
 strand: both
-sintax_cutoff: 0
-min_unique_size: 1
+sintax_cutoff: 0.2
+min_unique_size: 2
 
 # --- Resources (per-rule; partitions differ where needed) ---
 resources:
-  dorado_basecall:
-    threads: 8
-    mem_mb: 32000
-    runtime: 180
-    slurm_partition: gpu
-    slurm_account: richlab
-    slurm_gres: "gpu:1"        
-    slurm_extra: "--constraint='gpu_v100&gpu_t4'"            
-
-  dorado_demux:
-    threads: 8
-    mem_mb: 3200
-    runtime: 120
-    slurm_partition: gpu
-    slurm_account: richlab
-    slurm_gres: "gpu:1"        
-    slurm_extra: "--constraint='gpu_v100&gpu_t4'"     
-    
-  dorado_trim:
-    threads: 8
-    mem_mb: 32000
-    runtime: 120
-    slurm_partition: gpu
-    slurm_account: richlab
-    slurm_gres: "gpu:1"        
-    slurm_extra: "--constraint='gpu_v100&gpu_t4'"     
-
-  medaka_polish:
-    threads: 8
-    mem_mb: 3200
-    runtime: 240
-    slurm_partition: gpu
-    slurm_account: richlab
-    slurm_extra: "--gres=gpu:1"      
+  dorado_basecall: {threads: 8,  mem_mb: 3200,  runtime: 180,  slurm_partition: gpu, slurm_account: richlab, slurm_extra: "--gres='gpu:1' --constraint='gpu_v100|gpu_t4'"}
+  dorado_demux:    {threads: 8,  mem_mb: 3200,  runtime: 120,  slurm_partition: gpu, slurm_account: richlab, slurm_extra: "--gres='gpu:1' --constraint='gpu_v100|gpu_t4'"}
+  dorado_trim:     {threads: 8,  mem_mb: 3200,  runtime: 120,  slurm_partition: gpu, slurm_account: richlab, slurm_extra: "--gres='gpu:1' --constraint='gpu_v100|gpu_t4'"}
+  medaka_polish:   {threads: 8,  mem_mb: 3200,  runtime: 240,  slurm_partition: gpu, slurm_account: richlab, slurm_extra: "--gres='gpu:1'"}
 
   fastcat_filter:        {threads: 4,  mem_mb: 8000,  runtime: 60,  partition: batch, account: richlab}
   nanoplot_qc:           {threads: 2,  mem_mb: 4000,  runtime: 30,  partition: batch, account: richlab}
-  silva_index:           {threads: 4,  mem_mb: 8000,  runtime: 60,  partition: batch, account: richlab}
-  silva_taxmap:          {threads: 1,  mem_mb: 2000,  runtime: 15,  partition: batch, account: richlab}
-  silva_map_reads:       {threads: 16, mem_mb: 32000, runtime: 720, partition: batch, account: richlab}
-  silva_species_tables:  {threads: 2,  mem_mb: 8000,  runtime: 30,  partition: batch, account: richlab}
+  
+  itgdb_index:           {threads: 4,  mem_mb: 8000,  runtime: 60,  partition: batch, account: richlab}
+  itgdb_taxmap:          {threads: 1,  mem_mb: 2000,  runtime: 15,  partition: batch, account: richlab}
+  itgdb_map_reads:       {threads: 16, mem_mb: 32000, runtime: 720, partition: batch, account: richlab}
+  itgdb_species_tables:  {threads: 2,  mem_mb: 8000,  runtime: 30,  partition: batch, account: richlab}
+  
   isonclust3:            {threads: 16, mem_mb: 32000, runtime: 240, partition: batch, account: richlab}
   spoa_consensus:        {threads: 8,  mem_mb: 16000, runtime: 720, partition: batch, account: richlab}
   vsearch_pool_cluster:  {threads: 16, mem_mb: 32000, runtime: 300, partition: batch, account: richlab}
