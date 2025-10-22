@@ -666,11 +666,18 @@ rule itgdb_map_reads:
         bn=$(basename "$fq")
         sid="${{bn%.fastq.gz}}"; sid="${{sid%.fastq}}"
         out="$paf_dir/${{sid}}.paf"
+        
         if [[ -s "$out" ]]; then
           echo "skip $sid (have $out)" >&2
           continue
         fi
         echo "minimap2 → $sid" >&2
+        
+        if ! [ -s "$fq" ] || ! zcat -f "$fq" 2>/dev/null | head -n 1 | grep -q '^@'; then
+          echo "[map_reads] $bn is empty; creating empty $out" >&2
+          : > "$out"
+          continue
+        fi
         minimap2 -t {threads} -x "{params.preset}" {params.prim} \
                  "{input.idx}" "$fq" > "$out"
       done
@@ -744,8 +751,12 @@ def species_from_tax(tax: str) -> str:
 
 pafs = sorted(glob.glob(os.path.join(paf_dir, "*.paf")))
 if not pafs:
-    sys.exit("No PAF files found. Did mapping run?")
-
+    os.makedirs(species_dir, exist_ok=True)
+    with open(out_merged, "w", newline="", encoding="utf-8") as fh:
+        w = csv.writer(fh, delimiter="\t")
+        w.writerow(["Species"])
+    sys.exit(0)
+    
 sample2counts = dict()
 for paf in pafs:
     sid = os.path.basename(paf)[:-4]
@@ -877,7 +888,7 @@ rule spoa_consensus:
       : > "{output.done}"
     """
     
-rule vsearch_pool_cluster:
+rule vsearch_pool_cluster: 
     input: 
       done = rules.spoa_consensus.output.done
     output:
@@ -904,7 +915,7 @@ rule vsearch_pool_cluster:
       set -euo pipefail
       mkdir -p "{params.pooldir}" "$(dirname "{output.cent99}")" "$(dirname "{log}")"
       exec > "{log}" 2>&1
-
+      
       shopt -s nullglob
       files=( "{params.consdir}"/*.fasta "{params.consdir}"/*.fa "{params.consdir}"/*.fna )
       
@@ -913,7 +924,7 @@ rule vsearch_pool_cluster:
         : > "{output.drafts}"; : > "{output.cent99}"; : > "{output.cent97}"
         exit 0
       fi
-
+      
       cat "${{files[@]}}" > "{output.drafts}"
       
       if ! grep -q '^>' "{output.drafts}"; then
@@ -921,14 +932,14 @@ rule vsearch_pool_cluster:
         : > "{output.cent99}"; : > "{output.cent97}"
         exit 0
       fi
-
+      
       command -v vsearch >/dev/null || {{ echo "vsearch not found"; exit 127; }}
-
+      
       vsearch --derep_fulllength "{output.drafts}" \
               --sizeout --relabel OTU_ --strand both \
               --minuniquesize {params.min_unique} --threads {threads} \
               --output "{params.pooldir}/otus_derep.fasta"
-
+      
       if ! grep -q '^>' "{params.pooldir}/otus_derep.fasta"; then
         echo "[vsearch_pool_cluster] Derep produced 0 sequences (minuniquesize={params.min_unique}). Passing drafts through as centroids." >&2
         cp "{output.drafts}" "{output.cent99}"
@@ -937,14 +948,14 @@ rule vsearch_pool_cluster:
         vsearch --cluster_fast "{params.pooldir}/otus_derep.fasta" \
                 --id {params.id_primary} --strand both \
                 --centroids "{output.cent99}" --threads {threads}
-
+      
         vsearch --cluster_fast "{params.pooldir}/otus_derep.fasta" \
                 --id {params.id_legacy}  --strand both \
-                --centroids "{output.cent97}" --threads {threads}"
+                --centroids "{output.cent97}" --threads {threads}
       fi
       
       for f in "{output.drafts}" "{params.pooldir}/otus_derep.fasta" "{output.cent99}" "{output.cent97}"; do
-        printf "[counts] %-40s %6d\n" "$f" "$(grep -c '^>' "$f" || echo 0)"
+        printf "[counts] %-40s %6d\n" "$f" "$(grep -c '^>' "$f" || true)"
       done
     """
 
@@ -971,35 +982,25 @@ rule map_all_reads:
       mkdir -p "$(dirname "{output.all_reads}")" "$(dirname "{output.bam}")"
 
       : > "{output.all_reads}"
-      find "{input.filtered}" -maxdepth 1 -type f \
+      find "{input.reads}" -maxdepth 1 -type f \
         \( -name '*.fastq' -o -name '*.fastq.gz' \) -print0 \
-      | xargs -0 -r -I{} bash -c '
+      | xargs -0 -r -I% bash -c '
         fq="$1"
-        if [[ "$fq" == *.gz ]]; then zcat "$fq"; else cat "$fq"; fi
-      ' _ {} >> "{output.all_reads}"
+        if [[ "$fq" == *.gz ]]; then gzip -dc "$fq"; else cat "$fq"; fi
+      ' _ % >> "{output.all_reads}"
       
       if ! grep -q "^@" "{output.all_reads}"; then
         echo "[map_all_reads] No reads after filtering; creating header-only BAM." >&2
-        samtools faidx "{input.ref}"
-        awk 'BEGIN{OFS="\t"}{print "@SQ\tSN:"$1"\tLN:"$2}' "{input.ref}.fai" > "{output.bam}.header.sam"
+        samtools faidx "{input.refs}"
+        awk 'BEGIN{{OFS="\t"}}{{print "@SQ\tSN:"$1"\tLN:"$2}}' "{input.refs}.fai" > "{output.bam}.header.sam"
         samtools view -b -o "{output.bam}" "{output.bam}.header.sam"
         rm -f "{output.bam}.header.sam"
         samtools index -@ {threads} "{output.bam}"
         exit 0
       fi
       
-      # Normal mapping path
-      minimap2 -t {threads} -ax map-ont "{input.ref}" "{output.all_reads}" \
-        | samtools sort -@ {threads} -m 2G -o "{output.bam}"
-      samtools index -@ {threads} "{output.bam}"
-
-      : > "{output.all_reads}"
-      find "{input.reads}" -maxdepth 1 -type f -name '*.fastq' -print0 \
-        | xargs -0 cat >> "{output.all_reads}"
-
       minimap2 -t {threads} -ax map-ont "{input.refs}" "{output.all_reads}" \
         | samtools sort -@ {threads} -m 2G -o "{output.bam}"
-
       samtools index -@ {threads} "{output.bam}"
     """
 
@@ -1071,8 +1072,8 @@ rule racon_round1:
     
 rule map_r1:
     input: 
-      reads = rules.map_all_reads.output.all_reads, 
-      r1    = rules.racon_round1.output.r1
+      reads = rules.map_all_reads.output.all_reads,   
+      r1    = rules.racon_round1.output.r1            
     output: 
       bam = MAP_BAM_R1
     threads: Rq("map_r1", "threads")
@@ -1081,23 +1082,28 @@ rule map_r1:
         runtime  = Rq("map_r1", "runtime"),
         partition= Rq("map_r1", "partition"),
         account  = Rq("map_r1", "account"),
-        extra    =  R("map_r1", "extra") 
+        extra    = R("map_r1", "extra") 
     params:
         container_rev = lambda wc: config["container_rev"].get("nanoalign","0")
     container: CONTAINERS["nanoalign"]
     shell: r"""
         set -euo pipefail
-        tmpdir="{resources.tmpdir}"
-        if [[ -z "$tmpdir" || "$tmpdir" == "TBD" || "$tmpdir" == "<TBD>" ]]; then
-          tmpdir="/tmp"
+        mkdir -p "$(dirname "{output.bam}")"
+
+        if ! grep -q "^@" "{input.reads}"; then
+        echo "[map_r1] No reads; creating header-only BAM." >&2
+          samtools faidx "{input.r1}"
+          awk 'BEGIN{{OFS="\t"}}{{print "@SQ\tSN:"$1"\tLN:"$2}}' "{input.r1}.fai" > "{output.bam}.header.sam"
+          samtools view -b -o "{output.bam}" "{output.bam}.header.sam"
+          rm -f "{output.bam}.header.sam"
+          samtools index -@ {threads} "{output.bam}"
+          exit 0
         fi
-        mkdir -p "$tmpdir"
-      
+
         minimap2 -t {threads} -ax map-ont "{input.r1}" "{input.reads}" \
-          | samtools sort -@ {threads} -m 1G -T "$tmpdir/map_r1" -o "{output.bam}"
+          | samtools sort -@ {threads} -m 2G -o "{output.bam}"
         samtools index -@ {threads} "{output.bam}"
-      """
-    
+    """    
 # racon_round2
 rule racon_round2:
     input: 
@@ -1195,12 +1201,25 @@ rule chimera_taxonomy:
       command -v vsearch >/dev/null || {{ echo "vsearch not found"; exit 127; }}
 
       mkdir -p "{params.out_dir}/otu"
+      
+      if ! grep -q '^>' "{input.fasta}"; then
+        echo "[chimera_taxonomy] Input FASTA empty; creating empty outputs." >&2
+        : > "{output.nonchim}"
+        : > "{output.chimera}"
+        : > "{output.sintax}"
+        exit 0
+      fi
 
       echo "== Chimera detection (de novo) =="
-      vsearch --uchime3_denovo "{input.fasta}" \
+      vsearch --uchime_denovo "{input.fasta}" \
               --nonchimeras "{output.nonchim}" \
               --chimeras "{output.chimera}" \
               --threads {threads}
+
+      if ! grep -q '^>' "{output.nonchim}"; then
+        : > "{output.sintax}"
+        exit 0
+      fi
 
       echo "== Taxonomy (SINTAX with ITGDB) =="
       vsearch --sintax "{output.nonchim}" \
@@ -1256,18 +1275,29 @@ rule iqtree3_tree:
     container: CONTAINERS["cpu"]
     shell: r"""
       set -euo pipefail
-
+    
       mkdir -p "{params.out_dir}/otu" "$(dirname "{log}")"
-
+    
       IQ=$(command -v iqtree || command -v iqtree3 || command -v iqtree2 || true)
       if [ -z "$IQ" ]; then
         echo "No iqtree executable found in container PATH." >&2
         exit 127
       fi
-
+    
+      ckp="{params.out_dir}/otu/otu_tree.ckp.gz"
+      if [ -f "$ckp" ]; then
+        echo "[iqtree3_tree] removing stale checkpoint $ckp" >> "{log}" 2>&1 || true
+        rm -f "$ckp" || true
+      fi
+    
       "$IQ" -s "{input.msa}" -nt {threads} -m TEST -bb 1000 -alrt 1000 \
-            -pre "{params.out_dir}/otu/otu_tree" > "{log}" 2>&1
-
+            -pre "{params.out_dir}/otu/otu_tree" >> "{log}" 2>&1 || true
+    
+      if [ ! -s "{output.tree}" ]; then
+        "$IQ" -s "{input.msa}" -nt {threads} -m TEST -bb 1000 -alrt 1000 \
+              -pre "{params.out_dir}/otu/otu_tree" -redo >> "{log}" 2>&1
+      fi
+    
       test -s "{output.tree}"
     """
     
@@ -1310,12 +1340,24 @@ rule otu_table_per_sample:
                 --threads {threads}
       done
 
-      "$PYBIN" - <<'PY'
+"$PYBIN" - <<'PY'
 import glob, os, csv, sys
+
+def to_int(x):
+    try:
+        s = str(x).strip()
+        if not s or s.upper() == "NA":
+            return 0
+        return int(float(s))
+    except Exception:
+        return 0
+
 out = r"{output.merged}"
 tables = sorted(glob.glob(os.path.join(r"{params.tables_dir}", "otu_table_*.tsv")))
 if not tables:
-    sys.exit("No per-sample OTU tables found to merge.")
+    with open(out, "w", newline="") as fh:
+        csv.writer(fh, delimiter="\t").writerow(["OTU"])
+    sys.exit(0)
 
 merged = {{}}
 samples = []
@@ -1323,18 +1365,22 @@ samples = []
 for t in tables:
     sid = os.path.basename(t)
     if sid.startswith("otu_table_"): sid = sid[len("otu_table_"):]
-    if sid.endswith(".tsv"): sid = sid[:-4]
+    if sid.endswith(".tsv"):         sid = sid[:-4]
     samples.append(sid)
-    
+
     with open(t, newline="") as fh:
         r = csv.reader(fh, delimiter="\t")
-        header = next(r, None)  # discard header from vsearch
         for row in r:
-            if not row: continue
+            if not row:                      
+                continue
+            if row[0].startswith("#"):       
+                continue
+            if row[0].upper() in {{"OTU","OTUID","OTU_ID","OTUId"}}:
+                continue
             otu = row[0]
             val = sum(to_int(x) for x in row[1:])
-            d = merged.setdefault(otu, {{}})
-            d[sid] = d.get(sid, 0) + val
+            merged.setdefault(otu, {{}})
+            merged[otu][sid] = merged[otu].get(sid, 0) + val
 
 with open(out, "w", newline="") as fh:
     w = csv.writer(fh, delimiter="\t")

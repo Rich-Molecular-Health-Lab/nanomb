@@ -97,7 +97,7 @@ otu_id_legacy:  0.97
 map_id: 0.90
 strand: both
 sintax_cutoff: 0.2
-min_unique_size: 2
+min_unique_size: 1
 
 # --- Resources (per-rule; partitions differ where needed) ---
 resources:
