@@ -97,16 +97,15 @@ SHEET_NAME = LAYOUT["sample_sheet_name"]
 ROUTING_TSV = resolve_path(OUT_ROOT, LAYOUT["sample_routing"], sampleset=SAMPLESET, dataset=DATASET)
 
 # Ensure base dirs (dataset-scoped)
-for p in (OUT, TMP, os.path.join(OUT,"otu"), os.path.join(OUT,"asv"), os.path.join(OUT,"logs"), os.path.join(OUT,"benchmarks")):
+for p in (OUT, TMP, os.path.join(OUT,"otu"), os.path.join(OUT,"logs"), os.path.join(OUT,"benchmarks")):
     Path(p).mkdir(parents=True, exist_ok=True)
 
 # Containers
 CONTAINERS = {
-    "cpu":     _expand(config.get("container_cpu",     "/mnt/nrdstor/richlab/shared/containers/nanomb.sif")),
-    "gpu":     _expand(config.get("container_gpu",     "/mnt/nrdstor/richlab/shared/containers/nanombgpu.sif")),
-    "nanoasv": _expand(config.get("container_nanoasv", "/mnt/nrdstor/richlab/shared/containers/nanoasv.sif")),
-    "nanoalign": _expand(config.get("container_nanoalign", "/mnt/nrdstor/richlab/shared/containers/nanoalign.sif")),
-    "dorado":  _expand(config.get("container_dorado",  "/mnt/nrdstor/richlab/shared/containers/dorado.sif"))
+    "cpu":     _expand(config.get("container_cpu",     "docker://aliciamrich/nanomb-cpu:2025-10-11")),
+    "gpu":     _expand(config.get("container_gpu",     "docker://aliciamrich/nanombgpu:0.2.0-gpu")),
+    "nanoalign": _expand(config.get("container_nanoalign", "docker://aliciamrich/nanoalign:cpu")),
+    "dorado":  _expand(config.get("container_dorado",  "docker://nanoporetech/dorado:latest"))
 }
 
 # ---- wildcardable string templates (no callables) ----
@@ -133,6 +132,7 @@ ITGDB_FASTA = _expand(config["itgdb"]["seq_fasta"])
 ITGDB_TAX   = _expand(config["itgdb"]["tax_tsv"])
 
 MAP_ID  = float(config.get("map_id", 0.98))
+COLLAPSE_ID  = float(config.get("collapse_id", 0.997))
 STRAND  = config.get("strand", "both")
 SINTAX_CUTOFF = float(config.get("sintax_cutoff", 0.8))
 MIN_UNIQUE = int(config.get("min_unique_size", 1))
@@ -170,12 +170,6 @@ if not RUNS:
     raise WorkflowError("No runs found. Set config.runs or ensure pod5 folders exist under layout.pod5_dir.")
 
 
-def asv_target():
-    m = config.get("asv_method", None)
-    if m == "nanoasv": return os.path.join(OUT, "asv/nanoasv/phyloseq.RData")
-    if m == "nanoclust": return os.path.join(OUT, "asv/nanoclust/results.done")
-    if m == "dada2_ont": return os.path.join(OUT, "asv/dada2_ont/phyloseq.RData")
-    return []
 
 def demux_index_path(): return os.path.join(TMP, "demux_index.tsv")
 
@@ -200,12 +194,6 @@ def load_routing_for_dataset(dataset):
 # ---- Build final targets safely (no functions leak into input) ----
 _demux_done = [os.path.join(raw_dir_for_run(r), "demux_trim.done") for r in RUNS]
 
-_asv = asv_target()                 
-if not _asv:
-    _asv = []
-elif isinstance(_asv, str):
-    _asv = [_asv]                   
-
 _final_targets = (
     _demux_done
     + [
@@ -223,7 +211,6 @@ _final_targets = (
         os.path.join(OUT, "otu/otus_centroids_97.fasta"),
         os.path.join(OUT, "itgdb/species/itgdb_species_merged.tsv"),  
       ]
-    + _asv
 )
 
 rule all:
@@ -1191,15 +1178,16 @@ rule chimera_taxonomy:
         extra     = R("chimera_taxonomy", "extra")
     container: CONTAINERS["cpu"]
     params:
+        ref_nonchim = os.path.join(OUT, "otu/otus_clean.refok.fasta"),
+        ref_chimera = os.path.join(OUT, "otu/otus_chimeras.ref.fasta"),
+        cutoff      = lambda wc: SINTAX_CUTOFF,
         container_rev = lambda wc: config["container_rev"].get("cpu","0"),
-        sintax_cutoff = lambda wc: SINTAX_CUTOFF,
         out_dir       = OUT
     log:
         os.path.join(OUT, "logs/chimera_taxonomy.log")
     shell: r"""
       set -euo pipefail
       command -v vsearch >/dev/null || {{ echo "vsearch not found"; exit 127; }}
-
       mkdir -p "{params.out_dir}/otu"
       
       if ! grep -q '^>' "{input.fasta}"; then
@@ -1210,32 +1198,73 @@ rule chimera_taxonomy:
         exit 0
       fi
 
-      echo "== Chimera detection (de novo) =="
+      # 1) De novo chimera detection
       vsearch --uchime_denovo "{input.fasta}" \
               --nonchimeras "{output.nonchim}" \
-              --chimeras "{output.chimera}" \
+              --chimeras    "{output.chimera}" \
               --threads {threads}
 
+
+      # If denovo produced nothing, emit empty taxonomy and exit cleanly
       if ! grep -q '^>' "{output.nonchim}"; then
         : > "{output.sintax}"
         exit 0
       fi
 
-      echo "== Taxonomy (SINTAX with ITGDB) =="
+      # 2) Reference-based chimera detection against ITGDB
+      vsearch --uchime_ref "{output.nonchim}" \
+              --db "{input.db}" \
+              --nonchimeras "{params.ref_nonchim}" \
+              --chimeras    "{params.ref_chimera}" \
+              --threads {threads}
+      mv -f "{params.ref_nonchim}" "{output.nonchim}"
+      
+      # If ref-based step removed everything, emit empty taxonomy and exit
+      if ! grep -q '^>' "{output.nonchim}"; then
+        : > "{output.sintax}"
+        exit 0
+      fi
+
+      # 3) SINTAX taxonomy with configured cutoff
       vsearch --sintax "{output.nonchim}" \
               --db "{input.db}" \
-              --sintax_cutoff {params.sintax_cutoff} \
+              --sintax_cutoff {params.cutoff} \
               --strand both \
               --tabbedout "{output.sintax}" \
               --threads {threads}
-              
     """
-
-
-# 2. Multiple sequence alignment of non-chimeric OTUs
-rule otu_alignment:
+    
+rule collapse_ultraclose:
     input:
         fasta = rules.chimera_taxonomy.output.nonchim
+    output:
+        fasta = os.path.join(OUT, "otu/otus_ultraclose_merged.fasta")
+    params:
+        derep         = os.path.join(OUT, "otu/otus_ultraclose_merged.derep.fasta"),
+        id            = lambda wc: COLLAPSE_ID,
+        container_rev = lambda wc: config["container_rev"].get("cpu","0")
+    resources:
+        mem_mb    = Rq("collapse_ultraclose", "mem_mb"),
+        runtime   = Rq("collapse_ultraclose", "runtime"),
+        partition = Rq("collapse_ultraclose", "partition"),
+        account   = Rq("collapse_ultraclose", "account"),
+        extra     = R("collapse_ultraclose", "extra")
+    threads: Rq("collapse_ultraclose", "threads")
+    container: CONTAINERS["cpu"]
+    shell: r"""
+      set -euo pipefail
+      vsearch --derep_fulllength "{input.fasta}" \
+              --sizein --sizeout --relabel OTU_ \
+              --output "{params.derep}" --threads {threads}
+
+      vsearch --cluster_fast "{params.derep}" \
+              --id {params.id} --strand both \
+              --centroids "{output.fasta}" --threads {threads}
+    """
+
+rule otu_alignment:
+    input:
+        fasta = rules.collapse_ultraclose.output.fasta
     output:
         msa = os.path.join(OUT, "otu/otu_references_aligned.fasta")
     threads: Rq("otu_alignment", "threads")
@@ -1304,7 +1333,7 @@ rule iqtree3_tree:
 # 4. Per-sample read counts for each OTU
 rule otu_table_per_sample:
     input:
-        refs  = rules.chimera_taxonomy.output.nonchim,
+        refs  = rules.collapse_ultraclose.output.fasta,
         reads = rules.fastcat_filter.output.fastq
     output:
         merged = os.path.join(OUT, "otu/otu_table_merged.tsv")
@@ -1319,6 +1348,10 @@ rule otu_table_per_sample:
         container_rev = lambda wc: config["container_rev"].get("cpu","0"),
         map_id        = lambda wc: MAP_ID,
         strand        = lambda wc: STRAND,
+        iddef         = 1,
+        qcov          = 0.90,
+        tcov          = 0.90,
+        qmask         = "none",
         tables_dir    = os.path.join(OUT, "otu", "tables")
     container: CONTAINERS["cpu"]
     shell:
@@ -1332,10 +1365,15 @@ rule otu_table_per_sample:
 
       for fq in "{input.reads}"/*.fastq; do
         sid=$(basename "$fq" .fastq)
+        sid=$(basename "$fq" .fastq)
         vsearch --usearch_global "$fq" \
                 --db "{input.refs}" \
                 --id {params.map_id} \
+                --iddef {params.iddef} \
+                --query_cov {params.qcov} \
+                --target_cov {params.tcov} \
                 --strand {params.strand} \
+                --qmask {params.qmask} \
                 --otutabout "{params.tables_dir}/otu_table_${{sid}}.tsv" \
                 --threads {threads}
       done

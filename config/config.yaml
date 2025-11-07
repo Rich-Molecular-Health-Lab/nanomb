@@ -24,23 +24,23 @@ runs:
   - hdz19
 
 # --- Root ---
-out_root: "$WORK/datasets/16s"
+out_root: "/mnt/nrdstor/richlab/shared/datasets/16s" # Root of all other directories for data
 
 # --- Start point ---
 run_glob: "*"      # limit to a glob, e.g. "2025-10-*"
 run_regex: ""      # or a regex, e.g. "^2025-10-(01|03)_"
 
 # --- Layout ---
-layout:
+layout: # You only need to begin by transferring pod5_dir, sample_sheet_dir, sample_sheet_name, and sample_routing. The pipeline will populate the rest.
+  pod5_dir:           "{sampleset}/pod5" # This is the initial directory where you load the raw pod5 files from an ONT run
+  sample_sheet_dir:   "{sampleset}/samples" # Make sure you start with one dorado-friendly samplesheet for each of the runs (see above) in this directory.
+  sample_sheet_name:  "{run}_sample_sheet.csv" # You should add the dorado-friendly samplesheet for demultiplexing barcoded reads under this name.
+  sample_routing:     "{sampleset}/samples/sample_to_dataset.tsv" # Create a manifest where one column has the sample id and the second column identify's that sample's dataset (see above)
   dataset_dir:        "{sampleset}/{dataset}"
   raw_dir:            "{sampleset}/{dataset}/raw"
-  pod5_dir:           "{sampleset}/pod5"
   basecall_dir:       "{sampleset}/basecalled/{run}"
   demux_dir:          "{sampleset}/demuxed/{run}"
   summary_dir:        "{sampleset}/dorado_summaries/{run}"
-  sample_sheet_dir:   "{sampleset}/samples"
-  sample_sheet_name:  "{run}_sample_sheet.csv"
-  sample_routing:     "{sampleset}/samples/sample_to_dataset.tsv"
 
 # --- Containers ---
 container_rev:
@@ -48,11 +48,10 @@ container_rev:
   gpu: 2025-10-03b
   nanoalign: 2025-10-05
   dorado: 2025-10-05
-container_cpu:       "/mnt/nrdstor/richlab/shared/containers/nanomb.sif"
-container_gpu:       "/mnt/nrdstor/richlab/shared/containers/nanombgpu.sif"
-container_nanoalign: "/mnt/nrdstor/richlab/shared/containers/nanoalign.sif"
-container_dorado:    "/mnt/nrdstor/richlab/shared/containers/dorado.sif"
-
+container_cpu:       "docker://aliciamrich/nanomb-cpu"
+container_gpu:       "docker://aliciamrich/nanombgpu"
+container_nanoalign: "docker://aliciamrich/nanoalign"
+container_dorado:    "docker://nanoporetech/dorado:latest"
 
 # --- References ---
 
@@ -63,11 +62,11 @@ itgdb:
   index_name: "ITGDB_16S.mmi"
 
 # --- Dorado & Medaka ---
+barcode_kit: "SQK-16S114-24"
 dorado_model_name: "dna_r10.4.1_e8.2_400bps_sup@v5.2.0"
 dorado_models_dir: "/models"
 dorado_extra: ""
 medaka_model: "dna_r10.4.1_e8.2_400bps_sup@v5.2.0:consensus"
-barcode_kit: "SQK-16S114-24"
 
 # --- Dorado Trimming ---
 trim_emit_fastq: true
@@ -88,16 +87,17 @@ itgdb_minimap:
 
 # --- SPOA guards ---
 spoa_max_reads: 400
-spoa_min_reads: 3
+spoa_min_reads: 5
 spoa_extra: ""
 
 # --- VSEARCH OTUs / mapping / taxonomy ---
 otu_id_primary: 0.995
 otu_id_legacy:  0.97
-map_id: 0.90
+map_id: 0.95
+collapse_id: 0.997
 strand: both
-sintax_cutoff: 0.2
-min_unique_size: 1
+sintax_cutoff: 0.5
+min_unique_size: 3
 
 # --- Resources (per-rule; partitions differ where needed) ---
 resources:
@@ -122,6 +122,7 @@ resources:
   map_r1:                {threads: 8,  mem_mb: 16000, runtime: 180, partition: batch, account: richlab}
   racon_round2:          {threads: 8,  mem_mb: 64000, runtime: 720, partition: batch, account: richlab}
   chimera_taxonomy:      {threads: 16, mem_mb: 32000, runtime: 240, partition: batch, account: richlab}
+  collapse_ultraclose:   {threads: 8,  mem_mb: 32000, runtime: 240, partition: batch, account: richlab}
   otu_alignment:         {threads: 16, mem_mb: 32000, runtime: 240, partition: batch, account: richlab}
   iqtree3_tree:          {threads: 16, mem_mb: 64000, runtime: 720, partition: batch, account: richlab}
   otu_table_per_sample:  {threads: 16, mem_mb: 16000, runtime: 180, partition: batch, account: richlab}
