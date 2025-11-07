@@ -15,7 +15,7 @@ set -euo pipefail
 export PROJ_ROOT="/mnt/nrdstor/richlab/shared/nanomb"
 
 # All data/outputs for this pipeline live under your WORK area:
-# This matches config.yaml: out_root: "$WORK/datasets/16s"
+# This matches config.yaml: out_root
 export OUT_ROOT="/mnt/nrdstor/richlab/shared/datasets/16s"
 
 # Optional: a scratch area for intermediates under the dataset workspace

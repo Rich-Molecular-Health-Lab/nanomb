@@ -102,10 +102,10 @@ for p in (OUT, TMP, os.path.join(OUT,"otu"), os.path.join(OUT,"logs"), os.path.j
 
 # Containers
 CONTAINERS = {
-    "cpu":     _expand(config.get("container_cpu",     "docker://aliciamrich/nanomb-cpu:2025-10-11")),
-    "gpu":     _expand(config.get("container_gpu",     "docker://aliciamrich/nanombgpu:0.2.0-gpu")),
-    "nanoalign": _expand(config.get("container_nanoalign", "docker://aliciamrich/nanoalign:cpu")),
-    "dorado":  _expand(config.get("container_dorado",  "docker://nanoporetech/dorado:latest"))
+    "cpu":       _expand(config.get("container_cpu",       "$PROJ_ROOT/containers/nanomb.sif")),
+    "gpu":       _expand(config.get("container_gpu",       "$PROJ_ROOT/containers/nanombgpu.sif")),
+    "nanoalign": _expand(config.get("container_nanoalign", "$PROJ_ROOT/containers/nanoalign.sif")),
+    "dorado":    _expand(config.get("container_dorado",    "$PROJ_ROOT/containers/dorado.sif")),
 }
 
 # ---- wildcardable string templates (no callables) ----
@@ -517,6 +517,7 @@ rule fastcat_filter:
 
       for fq in {input.fastqs}; do
         [[ -s "$fq" ]] || continue
+        run=$(basename "$(dirname "$fq")")
         base=$(basename "$fq")
 
         for pat in {params.exclude}; do
@@ -526,6 +527,7 @@ rule fastcat_filter:
         done
 
         stem=$(printf "%s" "$base" | sed -E 's/\.fastq(\.gz)?$//; s/\.fq(\.gz)?$//')
+        stem="${{run}}__${{stem}}"
         hdir="{params.histdir}/${{stem}}"
         filesum_part="{params.outdir_base}/qc/fastcat_file_summary_${{stem}}.tsv"
         readsum_part="{params.outdir_base}/qc/fastcat_read_summary_${{stem}}.tsv"
@@ -576,6 +578,43 @@ rule nanoplot_qc:
       cat {input.filt_dir}/*.fastq > {output}/all.fastq
       NanoPlot --fastq {output}/all.fastq -o {output} --drop_outliers \
         --maxlength {params.maxlen} --minlength {params.minlen}
+    """
+
+# ---------------- wf-16s branch --------------
+
+rule stage_wf16s_input:
+    input:
+        filt_done = rules.fastcat_filter.output.done,
+        filt_dir  = rules.fastcat_filter.output.fastq
+    output:
+        indir    = directory(os.path.join(TMP, "wf16s_in")),
+        manifest = os.path.join(TMP, "wf16s_in", "manifest.tsv"),
+        done     = touch(os.path.join(TMP, "wf16s_in", ".staged.ok"))
+    threads: Rq("stage_wf16s_input", "threads")
+    resources:
+        mem_mb   = Rq("stage_wf16s_input", "mem_mb"), 
+        runtime  = Rq("stage_wf16s_input", "runtime"),
+        partition= Rq("stage_wf16s_input", "partition"),
+        account  = Rq("stage_wf16s_input", "account"),
+        extra    =  R("stage_wf16s_input", "extra") 
+    container: CONTAINERS["cpu"]
+    shell: r"""
+      set -euo pipefail
+      in_dir="{input.filt_dir}"
+      out_dir="{output.indir}"
+      man="{output.manifest}"
+
+      mkdir -p "$out_dir"
+      printf "sample_id\tpath\n" > "$man"
+
+      shopt -s nullglob
+      for fq in "$in_dir"/*.fastq "$in_dir"/*.fastq.gz; do
+        base="$(basename "$fq")"
+        sid="$(printf "%s" "$base" | sed -E 's/\.fastq(\.gz)?$//')"
+
+        ln -sf "$fq" "$out_dir/$base"
+        printf "%s\t%s\n" "$sid" "$out_dir/$base" >> "$man"
+      done
     """
     
 # ---------------- OTU branch ----------------
