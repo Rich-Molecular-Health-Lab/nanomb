@@ -1,0 +1,1521 @@
+None
+host: c2008.swan.hcc.unl.edu
+Building DAG of jobs...
+Updating checkpoint dependencies.
+You are running snakemake in a SLURM job context. This is not recommended, as it may lead to unexpected behavior. Please run Snakemake directly on the login node.
+SLURM run ID: 4b3713ef-e7d2-4ff5-8a19-5a0ad0e314f7
+Using shell: /usr/bin/bash
+Provided remote nodes: 16
+Job stats:
+job          count
+---------  -------
+all              1
+wf16s_run        1
+total            2
+
+Select jobs to execute...
+Execute 1 jobs...
+[Sun Nov  9 12:27:19 2025]
+rule wf16s_run:
+    input: /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in/.staged.ok, /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in, /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in/manifest.tsv
+    output: /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s/.wf16s.done
+    jobid: 101
+    reason: Missing output files: /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s/.wf16s.done
+    resources: mem_mb=32000, mem_mib=30518, disk_mb=1000, disk_mib=954, tmpdir=<TBD>, runtime=300, slurm_partition=batch, slurm_account=richlab, slurm_extra=, partition=batch, account=richlab, extra=
+Shell command: 
+      set -euo pipefail
+      mkdir -p "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s" "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_work"
+      nf_cmd=( nextflow run "epi2me-labs/wf-16s" \
+         --fastq "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in" \
+         --min_len "1200" \
+         --min_read_qual "15" \
+         --max_len "1700" \
+         -profile "singularity" \
+         --out_dir "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s" \
+         --minimap2_by_reference \
+         -work-dir "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_work" \
+         -resume )
+
+      echo "=== wf-16s ==="
+      printf "%q " "${nf_cmd[@]}" >&2; echo >&2
+
+      if ! command -v nextflow >/dev/null 2>&1; then
+        echo "[wf16s_run] 'nextflow' not found in container PATH; trying host PATH." >&2
+      fi
+
+      "${nf_cmd[@]}"
+
+      : > "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s/.wf16s.done"
+    
+Job 101 has been submitted with SLURM jobid 12771004 (log: /mnt/nrdstor/richlab/shared/nanomb/.snakemake/slurm_logs/rule_wf16s_run/12771004.log).
+[Sun Nov  9 12:28:15 2025]
+Error in rule wf16s_run:
+    message: SLURM-job '12771004' failed, SLURM status is: 'FAILED'. For further error details see the cluster/cloud log and the log files of the involved rule(s).
+    jobid: 101
+    input: /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in/.staged.ok, /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in, /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in/manifest.tsv
+    output: /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s/.wf16s.done
+    log: /mnt/nrdstor/richlab/shared/nanomb/.snakemake/slurm_logs/rule_wf16s_run/12771004.log (check log file(s) for error details)
+    shell:
+        
+      set -euo pipefail
+      mkdir -p "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s" "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_work"
+      nf_cmd=( nextflow run "epi2me-labs/wf-16s" \
+         --fastq "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in" \
+         --min_len "1200" \
+         --min_read_qual "15" \
+         --max_len "1700" \
+         -profile "singularity" \
+         --out_dir "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s" \
+         --minimap2_by_reference \
+         -work-dir "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_work" \
+         -resume )
+
+      echo "=== wf-16s ==="
+      printf "%q " "${nf_cmd[@]}" >&2; echo >&2
+
+      if ! command -v nextflow >/dev/null 2>&1; then
+        echo "[wf16s_run] 'nextflow' not found in container PATH; trying host PATH." >&2
+      fi
+
+      "${nf_cmd[@]}"
+
+      : > "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s/.wf16s.done"
+    
+        (command exited with non-zero exit code)
+    external_jobid: 12771004
+Logfile /mnt/nrdstor/richlab/shared/nanomb/.snakemake/slurm_logs/rule_wf16s_run/12771004.log:
+================================================================================
+host: c2010.swan.hcc.unl.edu
+Building DAG of jobs...
+Updating checkpoint dependencies.
+Using shell: /usr/bin/bash
+Provided remote nodes: 1
+Select jobs to execute...
+Execute 1 jobs...
+
+[Sun Nov  9 12:27:22 2025]
+rule wf16s_run:
+    input: /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in/.staged.ok, /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in, /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in/manifest.tsv
+    output: /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s/.wf16s.done
+    jobid: 0
+    reason: Forced execution
+    resources: mem_mb=32000, mem_mib=30518, disk_mb=1000, disk_mib=954, tmpdir=<TBD>, runtime=300, slurm_partition=batch, slurm_account=richlab, slurm_extra=, partition=batch, account=richlab, extra=
+Shell command: 
+      set -euo pipefail
+      mkdir -p "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s" "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_work"
+      nf_cmd=( nextflow run "epi2me-labs/wf-16s" \
+         --fastq "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in" \
+         --min_len "1200" \
+         --min_read_qual "15" \
+         --max_len "1700" \
+         -profile "singularity" \
+         --out_dir "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s" \
+         --minimap2_by_reference \
+         -work-dir "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_work" \
+         -resume )
+
+      echo "=== wf-16s ==="
+      printf "%q " "${nf_cmd[@]}" >&2; echo >&2
+
+      if ! command -v nextflow >/dev/null 2>&1; then
+        echo "[wf16s_run] 'nextflow' not found in container PATH; trying host PATH." >&2
+      fi
+
+      "${nf_cmd[@]}"
+
+      : > "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s/.wf16s.done"
+    
+host: c2010.swan.hcc.unl.edu
+Building DAG of jobs...
+Updating checkpoint dependencies.
+Using shell: /usr/bin/bash
+Provided cores: 1 (use --cores to define parallelism)
+Rules claiming more threads will be scaled down.
+Select jobs to execute...
+Execute 1 jobs...
+
+[Sun Nov  9 12:27:23 2025]
+localrule wf16s_run:
+    input: /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in/.staged.ok, /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in, /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in/manifest.tsv
+    output: /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s/.wf16s.done
+    jobid: 0
+    reason: Forced execution
+    resources: mem_mb=32000, mem_mib=30518, disk_mb=1000, disk_mib=954, tmpdir=/tmp, runtime=300, slurm_partition=batch, slurm_account=richlab, slurm_extra=, partition=batch, account=richlab, extra=
+Shell command: 
+      set -euo pipefail
+      mkdir -p "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s" "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_work"
+      nf_cmd=( nextflow run "epi2me-labs/wf-16s" \
+         --fastq "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in" \
+         --min_len "1200" \
+         --min_read_qual "15" \
+         --max_len "1700" \
+         -profile "singularity" \
+         --out_dir "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s" \
+         --minimap2_by_reference \
+         -work-dir "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_work" \
+         -resume )
+
+      echo "=== wf-16s ==="
+      printf "%q " "${nf_cmd[@]}" >&2; echo >&2
+
+      if ! command -v nextflow >/dev/null 2>&1; then
+        echo "[wf16s_run] 'nextflow' not found in container PATH; trying host PATH." >&2
+      fi
+
+      "${nf_cmd[@]}"
+
+      : > "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s/.wf16s.done"
+    
+Activating singularity image /mnt/nrdstor/richlab/shared/nanomb/containers/nextflow.sif
+INFO:    Environment variable SINGULARITYENV_HOME is set, but APPTAINERENV_HOME is preferred
+INFO:    Environment variable SINGULARITYENV_NXF_ASSETS is set, but APPTAINERENV_NXF_ASSETS is preferred
+INFO:    Environment variable SINGULARITYENV_NXF_WORK is set, but APPTAINERENV_NXF_WORK is preferred
+INFO:    Environment variable SINGULARITYENV_NXF_HOME is set, but APPTAINERENV_NXF_HOME is preferred
+WARNING: Overriding HOME environment variable with SINGULARITYENV_HOME is not permitted
+=== wf-16s ===
+nextflow run epi2me-labs/wf-16s --fastq /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in --min_len 1200 --min_read_qual 15 --max_len 1700 -profile singularity --out_dir /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s --minimap2_by_reference -work-dir /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_work -resume 
+Downloading nextflow dependencies. It may require a few seconds, please wait .. 
+[K
+ N E X T F L O W   ~  version 25.10.0
+
+Pulling epi2me-labs/wf-16s ...
+ downloaded from https://github.com/epi2me-labs/wf-16s.git
+WARN: It appears you have never run this project before -- Option `-resume` is ignored
+Launching `https://github.com/epi2me-labs/wf-16s` [fervent_lorenz] DSL2 - revision: 739009dea1 [master]
+
+WARN: NEXTFLOW RECURSION IS A PREVIEW FEATURE - SYNTAX AND FUNCTIONALITY CAN CHANGE IN FUTURE RELEASES
+
+||||||||||   _____ ____ ___ ____  __  __ _____
+||||||||||  | ____|  _ \_ _|___ \|  \/  | ____|
+|||||       |  _| | |_) | |  __) | |\/| |  _|
+|||||       | |___|  __/| | / __/| |  | | |__
+||||||||||  |_____|_|  |___|_____|_|  |_|_____|
+||||||||||  wf-16s v1.6.0-g739009d
+--------------------------------------------------------------------------------
+Core Nextflow options
+  revision             : master
+  runName              : fervent_lorenz
+  containerEngine      : singularity
+  container            : [withLabel:wfmetagenomics:ontresearch/wf-metagenomics:sha1d71a4d15f57a1c32aacdb94cacdeb268205548e, withLabel:wf_common:ontresearch/wf-common:sha72f3517dd994984e0e2da0b97cb3f23f8540be4b]
+  launchDir            : /mnt/nrdstor/richlab/shared/nanomb
+  workDir              : /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_work
+  projectDir           : /mnt/nrdstor/richlab/shared/datasets/16s/tmp/wf16s_work/.nxf/assets/epi2me-labs/wf-16s
+  userName             : aliciarich
+  profile              : singularity
+  configFiles          : /mnt/nrdstor/richlab/shared/datasets/16s/tmp/wf16s_work/.nxf/assets/epi2me-labs/wf-16s/nextflow.config
+
+Input Options
+  fastq                : /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in
+
+Minimap2 Options
+  minimap2_by_reference: true
+
+Output Options
+  out_dir              : /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s
+
+Advanced Options
+  min_len              : 1200
+  min_read_qual        : 15
+  max_len              : 1700
+
+!! Only displaying parameters that differ from the pipeline defaults !!
+--------------------------------------------------------------------------------
+If you use epi2me-labs/wf-16s for your analysis please cite:
+
+* The nf-core framework
+  https://doi.org/10.1038/s41587-020-0439-x
+
+
+--------------------------------------------------------------------------------
+This is epi2me-labs/wf-16s v1.6.0-g739009d.
+--------------------------------------------------------------------------------
+Checking inputs.
+Searching input for [.fastq, .fastq.gz, .fq, .fq.gz] files.
+[-        ] fastcat -
+Note: Empty files or those files whose reads have been discarded after filtering based on read length and/or read quality will not appear in the report and will be excluded from subsequent analysis.
+
+[-        ] fastcat                        -
+[-        ] getVersions                    -
+[-        ] getVersionsCommon              -
+[-        ] getParams                      -
+[-        ] pre…s:download_unpack_taxonomy -
+[-        ] pre…wnload_reference_ref2taxid -
+[-        ] minimap_pipeline:minimap       -
+[-        ] min…p_pipeline:minimapTaxonomy -
+[-        ] min…pipeline:getAlignmentStats -
+[-        ] min…line:createAbundanceTables -
+Note: Empty files or those files whose reads have been discarded after filtering based on read length and/or read quality will not appear in the report and will be excluded from subsequent analysis.
+Minimap2 pipeline.
+Preparing databases.
+Using default taxonomy database.
+Using a default database.
+
+[-        ] fastcat                        -
+[-        ] getVersions                    -
+[-        ] getVersionsCommon              -
+[-        ] getParams                      -
+[-        ] pre…s:download_unpack_taxonomy -
+[-        ] pre…wnload_reference_ref2taxid -
+[-        ] minimap_pipeline:minimap       -
+[-        ] min…p_pipeline:minimapTaxonomy -
+[-        ] min…pipeline:getAlignmentStats -
+[-        ] min…line:createAbundanceTables -
+[-        ] makeReport                     -
+Note: Empty files or those files whose reads have been discarded after filtering based on read length and/or read quality will not appear in the report and will be excluded from subsequent analysis.
+Minimap2 pipeline.
+Preparing databases.
+Using default taxonomy database.
+Using a default database.
+
+[-        ] fastcat                        -
+[-        ] getVersions                    -
+[-        ] getVersionsCommon              -
+[-        ] getParams                      -
+[-        ] pre…s:download_unpack_taxonomy -
+[-        ] pre…wnload_reference_ref2taxid -
+[-        ] minimap_pipeline:minimap       -
+[-        ] min…p_pipeline:minimapTaxonomy -
+[-        ] min…pipeline:getAlignmentStats -
+[-        ] min…line:createAbundanceTables -
+[-        ] makeReport                     -
+Note: Empty files or those files whose reads have been discarded after filtering based on read length and/or read quality will not appear in the report and will be excluded from subsequent analysis.
+Minimap2 pipeline.
+Preparing databases.
+Using default taxonomy database.
+Using a default database.
+Pulling Singularity image docker://ontresearch/wf-common:sha72f3517dd994984e0e2da0b97cb3f23f8540be4b [cache /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_work/singularity/ontresearch-wf-common-sha72f3517dd994984e0e2da0b97cb3f23f8540be4b.img]
+Pulling Singularity image docker://ontresearch/wf-metagenomics:sha1d71a4d15f57a1c32aacdb94cacdeb268205548e [cache /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_work/singularity/ontresearch-wf-metagenomics-sha1d71a4d15f57a1c32aacdb94cacdeb268205548e.img]
+WARN: Singularity cache directory has not been defined -- Remote image will be stored in the path: /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_work/singularity -- Use the environment variable NXF_SINGULARITY_CACHEDIR to specify a different location
+
+[-        ] fastcat                        -
+[-        ] getVersions                    -
+[-        ] getVersionsCommon              -
+[-        ] getParams                      -
+[-        ] pre…s:download_unpack_taxonomy -
+[-        ] pre…wnload_reference_ref2taxid -
+[-        ] minimap_pipeline:minimap       -
+[-        ] min…p_pipeline:minimapTaxonomy -
+[-        ] min…pipeline:getAlignmentStats -
+[-        ] min…line:createAbundanceTables -
+[-        ] makeReport                     -
+Note: Empty files or those files whose reads have been discarded after filtering based on read length and/or read quality will not appear in the report and will be excluded from subsequent analysis.
+Minimap2 pipeline.
+Preparing databases.
+Using default taxonomy database.
+Using a default database.
+Pulling Singularity image docker://ontresearch/wf-common:sha72f3517dd994984e0e2da0b97cb3f23f8540be4b [cache /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_work/singularity/ontresearch-wf-common-sha72f3517dd994984e0e2da0b97cb3f23f8540be4b.img]
+Pulling Singularity image docker://ontresearch/wf-metagenomics:sha1d71a4d15f57a1c32aacdb94cacdeb268205548e [cache /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_work/singularity/ontresearch-wf-metagenomics-sha1d71a4d15f57a1c32aacdb94cacdeb268205548e.img]
+WARN: Singularity cache directory has not been defined -- Remote image will be stored in the path: /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_work/singularity -- Use the environment variable NXF_SINGULARITY_CACHEDIR to specify a different location
+ERROR ~ Error executing process > 'getParams'
+
+Caused by:
+  Failed to pull singularity image
+    command: singularity pull  --name ontresearch-wf-common-sha72f3517dd994984e0e2da0b97cb3f23f8540be4b.img.pulling.1762712885072 docker://ontresearch/wf-common:sha72f3517dd994984e0e2da0b97cb3f23f8540be4b > /dev/null
+    status : 127
+    hint   : Try and increase singularity.pullTimeout in the config (current is "20m")
+    message:
+      bash: line 1: singularity: command not found
+
+
+
+ -- Check '.nextflow.log' file for details
+
+[-        ] fastcat                        -
+[-        ] getVersions                    -
+[-        ] getVersionsCommon              -
+[-        ] getParams                      -
+[-        ] pre…s:download_unpack_taxonomy -
+[-        ] pre…wnload_reference_ref2taxid -
+[-        ] minimap_pipeline:minimap       -
+[-        ] min…p_pipeline:minimapTaxonomy -
+[-        ] min…pipeline:getAlignmentStats -
+[-        ] min…line:createAbundanceTables -
+[-        ] makeReport                     -
+Note: Empty files or those files whose reads have been discarded after filtering based on read length and/or read quality will not appear in the report and will be excluded from subsequent analysis.
+Minimap2 pipeline.
+Preparing databases.
+Using default taxonomy database.
+Using a default database.
+Pulling Singularity image docker://ontresearch/wf-common:sha72f3517dd994984e0e2da0b97cb3f23f8540be4b [cache /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_work/singularity/ontresearch-wf-common-sha72f3517dd994984e0e2da0b97cb3f23f8540be4b.img]
+Pulling Singularity image docker://ontresearch/wf-metagenomics:sha1d71a4d15f57a1c32aacdb94cacdeb268205548e [cache /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_work/singularity/ontresearch-wf-metagenomics-sha1d71a4d15f57a1c32aacdb94cacdeb268205548e.img]
+WARN: Singularity cache directory has not been defined -- Remote image will be stored in the path: /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_work/singularity -- Use the environment variable NXF_SINGULARITY_CACHEDIR to specify a different location
+ERROR ~ Error executing process > 'getParams'
+
+Caused by:
+  Failed to pull singularity image
+    command: singularity pull  --name ontresearch-wf-common-sha72f3517dd994984e0e2da0b97cb3f23f8540be4b.img.pulling.1762712885072 docker://ontresearch/wf-common:sha72f3517dd994984e0e2da0b97cb3f23f8540be4b > /dev/null
+    status : 127
+    hint   : Try and increase singularity.pullTimeout in the config (current is "20m")
+    message:
+      bash: line 1: singularity: command not found
+
+
+
+ -- Check '.nextflow.log' file for details
+
+RuleException:
+CalledProcessError in file "/mnt/nrdstor/richlab/shared/nanomb/Snakefile", line 657:
+Command ' singularity  exec --home '/mnt/nrdstor/richlab/shared/nanomb' --nv --bind /work,/lustre,/mnt/nrdstor,/home,/mnt/nrdstor/richlab/shared/dorado_models:/models,/mnt/nrdstor/richlab/shared/databases:/refdb /mnt/nrdstor/richlab/shared/nanomb/containers/nextflow.sif bash -c 'set -euo pipefail;  
+      set -euo pipefail
+      mkdir -p "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s" "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_work"
+      nf_cmd=( nextflow run "epi2me-labs/wf-16s" \
+         --fastq "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in" \
+         --min_len "1200" \
+         --min_read_qual "15" \
+         --max_len "1700" \
+         -profile "singularity" \
+         --out_dir "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s" \
+         --minimap2_by_reference \
+         -work-dir "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_work" \
+         -resume )
+
+      echo "=== wf-16s ==="
+      printf "%q " "${nf_cmd[@]}" >&2; echo >&2
+
+      if ! command -v nextflow >/dev/null 2>&1; then
+        echo "[wf16s_run] '\''nextflow'\'' not found in container PATH; trying host PATH." >&2
+      fi
+
+      "${nf_cmd[@]}"
+
+      : > "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s/.wf16s.done"'' returned non-zero exit status 1.
+[Sun Nov  9 12:28:08 2025]
+Error in rule wf16s_run:
+    message: None
+    jobid: 0
+    input: /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in/.staged.ok, /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in, /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in/manifest.tsv
+    output: /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s/.wf16s.done
+    shell:
+        
+      set -euo pipefail
+      mkdir -p "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s" "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_work"
+      nf_cmd=( nextflow run "epi2me-labs/wf-16s" \
+         --fastq "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in" \
+         --min_len "1200" \
+         --min_read_qual "15" \
+         --max_len "1700" \
+         -profile "singularity" \
+         --out_dir "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s" \
+         --minimap2_by_reference \
+         -work-dir "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_work" \
+         -resume )
+
+      echo "=== wf-16s ==="
+      printf "%q " "${nf_cmd[@]}" >&2; echo >&2
+
+      if ! command -v nextflow >/dev/null 2>&1; then
+        echo "[wf16s_run] 'nextflow' not found in container PATH; trying host PATH." >&2
+      fi
+
+      "${nf_cmd[@]}"
+
+      : > "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s/.wf16s.done"
+    
+        (command exited with non-zero exit code)
+Shutting down, this might take some time.
+Exiting because a job execution failed. Look below for error messages
+[Sun Nov  9 12:28:08 2025]
+Error in rule wf16s_run:
+    message: None
+    jobid: 0
+    input: /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in/.staged.ok, /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in, /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in/manifest.tsv
+    output: /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s/.wf16s.done
+    shell:
+        
+      set -euo pipefail
+      mkdir -p "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s" "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_work"
+      nf_cmd=( nextflow run "epi2me-labs/wf-16s" \
+         --fastq "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in" \
+         --min_len "1200" \
+         --min_read_qual "15" \
+         --max_len "1700" \
+         -profile "singularity" \
+         --out_dir "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s" \
+         --minimap2_by_reference \
+         -work-dir "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_work" \
+         -resume )
+
+      echo "=== wf-16s ==="
+      printf "%q " "${nf_cmd[@]}" >&2; echo >&2
+
+      if ! command -v nextflow >/dev/null 2>&1; then
+        echo "[wf16s_run] 'nextflow' not found in container PATH; trying host PATH." >&2
+      fi
+
+      "${nf_cmd[@]}"
+
+      : > "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s/.wf16s.done"
+    
+        (command exited with non-zero exit code)
+Storing output in storage.
+WorkflowError:
+At least one job did not complete successfully.
+srun: error: c2010: task 0: Exited with exit code 1
+[Sun Nov  9 12:28:08 2025]
+Error in rule wf16s_run:
+    message: None
+    jobid: 0
+    input: /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in/.staged.ok, /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in, /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in/manifest.tsv
+    output: /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s/.wf16s.done
+    shell:
+        
+      set -euo pipefail
+      mkdir -p "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s" "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_work"
+      nf_cmd=( nextflow run "epi2me-labs/wf-16s" \
+         --fastq "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in" \
+         --min_len "1200" \
+         --min_read_qual "15" \
+         --max_len "1700" \
+         -profile "singularity" \
+         --out_dir "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s" \
+         --minimap2_by_reference \
+         -work-dir "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_work" \
+         -resume )
+
+      echo "=== wf-16s ==="
+      printf "%q " "${nf_cmd[@]}" >&2; echo >&2
+
+      if ! command -v nextflow >/dev/null 2>&1; then
+        echo "[wf16s_run] 'nextflow' not found in container PATH; trying host PATH." >&2
+      fi
+
+      "${nf_cmd[@]}"
+
+      : > "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s/.wf16s.done"
+    
+        (command exited with non-zero exit code)
+Shutting down, this might take some time.
+Exiting because a job execution failed. Look below for error messages
+[Sun Nov  9 12:28:08 2025]
+Error in rule wf16s_run:
+    message: None
+    jobid: 0
+    input: /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in/.staged.ok, /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in, /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in/manifest.tsv
+    output: /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s/.wf16s.done
+    shell:
+        
+      set -euo pipefail
+      mkdir -p "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s" "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_work"
+      nf_cmd=( nextflow run "epi2me-labs/wf-16s" \
+         --fastq "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in" \
+         --min_len "1200" \
+         --min_read_qual "15" \
+         --max_len "1700" \
+         -profile "singularity" \
+         --out_dir "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s" \
+         --minimap2_by_reference \
+         -work-dir "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_work" \
+         -resume )
+
+      echo "=== wf-16s ==="
+      printf "%q " "${nf_cmd[@]}" >&2; echo >&2
+
+      if ! command -v nextflow >/dev/null 2>&1; then
+        echo "[wf16s_run] 'nextflow' not found in container PATH; trying host PATH." >&2
+      fi
+
+      "${nf_cmd[@]}"
+
+      : > "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s/.wf16s.done"
+    
+        (command exited with non-zero exit code)
+Storing output in storage.
+WorkflowError:
+At least one job did not complete successfully.
+================================================================================
+Trying to restart job 101.
+Select jobs to execute...
+Execute 1 jobs...
+[Sun Nov  9 12:28:15 2025]
+rule wf16s_run:
+    input: /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in/.staged.ok, /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in, /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in/manifest.tsv
+    output: /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s/.wf16s.done
+    jobid: 101
+    reason: Missing output files: /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s/.wf16s.done
+    resources: mem_mb=32000, mem_mib=30518, disk_mb=1000, disk_mib=954, tmpdir=<TBD>, runtime=300, slurm_partition=batch, slurm_account=richlab, slurm_extra=, partition=batch, account=richlab, extra=
+Shell command: 
+      set -euo pipefail
+      mkdir -p "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s" "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_work"
+      nf_cmd=( nextflow run "epi2me-labs/wf-16s" \
+         --fastq "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in" \
+         --min_len "1200" \
+         --min_read_qual "15" \
+         --max_len "1700" \
+         -profile "singularity" \
+         --out_dir "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s" \
+         --minimap2_by_reference \
+         -work-dir "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_work" \
+         -resume )
+
+      echo "=== wf-16s ==="
+      printf "%q " "${nf_cmd[@]}" >&2; echo >&2
+
+      if ! command -v nextflow >/dev/null 2>&1; then
+        echo "[wf16s_run] 'nextflow' not found in container PATH; trying host PATH." >&2
+      fi
+
+      "${nf_cmd[@]}"
+
+      : > "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s/.wf16s.done"
+    
+Job 101 has been submitted with SLURM jobid 12771009 (log: /mnt/nrdstor/richlab/shared/nanomb/.snakemake/slurm_logs/rule_wf16s_run/12771009.log).
+[Sun Nov  9 12:28:44 2025]
+Error in rule wf16s_run:
+    message: SLURM-job '12771009' failed, SLURM status is: 'FAILED'. For further error details see the cluster/cloud log and the log files of the involved rule(s).
+    jobid: 101
+    input: /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in/.staged.ok, /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in, /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in/manifest.tsv
+    output: /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s/.wf16s.done
+    log: /mnt/nrdstor/richlab/shared/nanomb/.snakemake/slurm_logs/rule_wf16s_run/12771009.log (check log file(s) for error details)
+    shell:
+        
+      set -euo pipefail
+      mkdir -p "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s" "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_work"
+      nf_cmd=( nextflow run "epi2me-labs/wf-16s" \
+         --fastq "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in" \
+         --min_len "1200" \
+         --min_read_qual "15" \
+         --max_len "1700" \
+         -profile "singularity" \
+         --out_dir "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s" \
+         --minimap2_by_reference \
+         -work-dir "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_work" \
+         -resume )
+
+      echo "=== wf-16s ==="
+      printf "%q " "${nf_cmd[@]}" >&2; echo >&2
+
+      if ! command -v nextflow >/dev/null 2>&1; then
+        echo "[wf16s_run] 'nextflow' not found in container PATH; trying host PATH." >&2
+      fi
+
+      "${nf_cmd[@]}"
+
+      : > "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s/.wf16s.done"
+    
+        (command exited with non-zero exit code)
+    external_jobid: 12771009
+Logfile /mnt/nrdstor/richlab/shared/nanomb/.snakemake/slurm_logs/rule_wf16s_run/12771009.log:
+================================================================================
+host: c2010.swan.hcc.unl.edu
+Building DAG of jobs...
+Updating checkpoint dependencies.
+Using shell: /usr/bin/bash
+Provided remote nodes: 1
+Select jobs to execute...
+Execute 1 jobs...
+
+[Sun Nov  9 12:28:16 2025]
+rule wf16s_run:
+    input: /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in/.staged.ok, /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in, /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in/manifest.tsv
+    output: /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s/.wf16s.done
+    jobid: 0
+    reason: Forced execution
+    resources: mem_mb=32000, mem_mib=30518, disk_mb=1000, disk_mib=954, tmpdir=<TBD>, runtime=300, slurm_partition=batch, slurm_account=richlab, slurm_extra=, partition=batch, account=richlab, extra=
+Shell command: 
+      set -euo pipefail
+      mkdir -p "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s" "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_work"
+      nf_cmd=( nextflow run "epi2me-labs/wf-16s" \
+         --fastq "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in" \
+         --min_len "1200" \
+         --min_read_qual "15" \
+         --max_len "1700" \
+         -profile "singularity" \
+         --out_dir "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s" \
+         --minimap2_by_reference \
+         -work-dir "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_work" \
+         -resume )
+
+      echo "=== wf-16s ==="
+      printf "%q " "${nf_cmd[@]}" >&2; echo >&2
+
+      if ! command -v nextflow >/dev/null 2>&1; then
+        echo "[wf16s_run] 'nextflow' not found in container PATH; trying host PATH." >&2
+      fi
+
+      "${nf_cmd[@]}"
+
+      : > "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s/.wf16s.done"
+    
+host: c2010.swan.hcc.unl.edu
+Building DAG of jobs...
+Updating checkpoint dependencies.
+Using shell: /usr/bin/bash
+Provided cores: 1 (use --cores to define parallelism)
+Rules claiming more threads will be scaled down.
+Select jobs to execute...
+Execute 1 jobs...
+
+[Sun Nov  9 12:28:18 2025]
+localrule wf16s_run:
+    input: /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in/.staged.ok, /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in, /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in/manifest.tsv
+    output: /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s/.wf16s.done
+    jobid: 0
+    reason: Forced execution
+    resources: mem_mb=32000, mem_mib=30518, disk_mb=1000, disk_mib=954, tmpdir=/tmp, runtime=300, slurm_partition=batch, slurm_account=richlab, slurm_extra=, partition=batch, account=richlab, extra=
+Shell command: 
+      set -euo pipefail
+      mkdir -p "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s" "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_work"
+      nf_cmd=( nextflow run "epi2me-labs/wf-16s" \
+         --fastq "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in" \
+         --min_len "1200" \
+         --min_read_qual "15" \
+         --max_len "1700" \
+         -profile "singularity" \
+         --out_dir "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s" \
+         --minimap2_by_reference \
+         -work-dir "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_work" \
+         -resume )
+
+      echo "=== wf-16s ==="
+      printf "%q " "${nf_cmd[@]}" >&2; echo >&2
+
+      if ! command -v nextflow >/dev/null 2>&1; then
+        echo "[wf16s_run] 'nextflow' not found in container PATH; trying host PATH." >&2
+      fi
+
+      "${nf_cmd[@]}"
+
+      : > "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s/.wf16s.done"
+    
+Activating singularity image /mnt/nrdstor/richlab/shared/nanomb/containers/nextflow.sif
+INFO:    Environment variable SINGULARITYENV_HOME is set, but APPTAINERENV_HOME is preferred
+INFO:    Environment variable SINGULARITYENV_NXF_ASSETS is set, but APPTAINERENV_NXF_ASSETS is preferred
+INFO:    Environment variable SINGULARITYENV_NXF_WORK is set, but APPTAINERENV_NXF_WORK is preferred
+INFO:    Environment variable SINGULARITYENV_NXF_HOME is set, but APPTAINERENV_NXF_HOME is preferred
+WARNING: Overriding HOME environment variable with SINGULARITYENV_HOME is not permitted
+=== wf-16s ===
+nextflow run epi2me-labs/wf-16s --fastq /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in --min_len 1200 --min_read_qual 15 --max_len 1700 -profile singularity --out_dir /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s --minimap2_by_reference -work-dir /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_work -resume 
+
+ N E X T F L O W   ~  version 25.10.0
+
+Launching `https://github.com/epi2me-labs/wf-16s` [chaotic_lamarr] DSL2 - revision: 739009dea1 [master]
+
+WARN: NEXTFLOW RECURSION IS A PREVIEW FEATURE - SYNTAX AND FUNCTIONALITY CAN CHANGE IN FUTURE RELEASES
+
+||||||||||   _____ ____ ___ ____  __  __ _____
+||||||||||  | ____|  _ \_ _|___ \|  \/  | ____|
+|||||       |  _| | |_) | |  __) | |\/| |  _|
+|||||       | |___|  __/| | / __/| |  | | |__
+||||||||||  |_____|_|  |___|_____|_|  |_|_____|
+||||||||||  wf-16s v1.6.0-g739009d
+--------------------------------------------------------------------------------
+Core Nextflow options
+  revision             : master
+  runName              : chaotic_lamarr
+  containerEngine      : singularity
+  container            : [withLabel:wfmetagenomics:ontresearch/wf-metagenomics:sha1d71a4d15f57a1c32aacdb94cacdeb268205548e, withLabel:wf_common:ontresearch/wf-common:sha72f3517dd994984e0e2da0b97cb3f23f8540be4b]
+  launchDir            : /mnt/nrdstor/richlab/shared/nanomb
+  workDir              : /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_work
+  projectDir           : /mnt/nrdstor/richlab/shared/datasets/16s/tmp/wf16s_work/.nxf/assets/epi2me-labs/wf-16s
+  userName             : aliciarich
+  profile              : singularity
+  configFiles          : /mnt/nrdstor/richlab/shared/datasets/16s/tmp/wf16s_work/.nxf/assets/epi2me-labs/wf-16s/nextflow.config
+
+Input Options
+  fastq                : /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in
+
+Minimap2 Options
+  minimap2_by_reference: true
+
+Output Options
+  out_dir              : /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s
+
+Advanced Options
+  min_len              : 1200
+  min_read_qual        : 15
+  max_len              : 1700
+
+!! Only displaying parameters that differ from the pipeline defaults !!
+--------------------------------------------------------------------------------
+If you use epi2me-labs/wf-16s for your analysis please cite:
+
+* The nf-core framework
+  https://doi.org/10.1038/s41587-020-0439-x
+
+
+--------------------------------------------------------------------------------
+This is epi2me-labs/wf-16s v1.6.0-g739009d.
+--------------------------------------------------------------------------------
+Checking inputs.
+Searching input for [.fastq, .fastq.gz, .fq, .fq.gz] files.
+[-        ] fastcat           -
+[-        ] getVersions       -
+[-        ] getVersionsCommon -
+[-        ] getParams         -
+Note: Empty files or those files whose reads have been discarded after filtering based on read length and/or read quality will not appear in the report and will be excluded from subsequent analysis.
+Minimap2 pipeline.
+Preparing databases.
+Using default taxonomy database.
+
+[-        ] fastcat                        -
+[-        ] getVersions                    -
+[-        ] getVersionsCommon              -
+[-        ] getParams                      -
+[-        ] pre…s:download_unpack_taxonomy -
+[-        ] pre…wnload_reference_ref2taxid -
+[-        ] minimap_pipeline:minimap       -
+[-        ] min…p_pipeline:minimapTaxonomy -
+[-        ] min…pipeline:getAlignmentStats -
+[-        ] min…line:createAbundanceTables -
+[-        ] makeReport                     -
+Note: Empty files or those files whose reads have been discarded after filtering based on read length and/or read quality will not appear in the report and will be excluded from subsequent analysis.
+Minimap2 pipeline.
+Preparing databases.
+Using default taxonomy database.
+Using a default database.
+
+[-        ] fastcat                        -
+[-        ] getVersions                    -
+[-        ] getVersionsCommon              -
+[-        ] getParams                      -
+[-        ] pre…s:download_unpack_taxonomy -
+[-        ] pre…wnload_reference_ref2taxid -
+[-        ] minimap_pipeline:minimap       -
+[-        ] min…p_pipeline:minimapTaxonomy -
+[-        ] min…pipeline:getAlignmentStats -
+[-        ] min…line:createAbundanceTables -
+[-        ] makeReport                     -
+Note: Empty files or those files whose reads have been discarded after filtering based on read length and/or read quality will not appear in the report and will be excluded from subsequent analysis.
+Minimap2 pipeline.
+Preparing databases.
+Using default taxonomy database.
+Using a default database.
+Pulling Singularity image docker://ontresearch/wf-metagenomics:sha1d71a4d15f57a1c32aacdb94cacdeb268205548e [cache /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_work/singularity/ontresearch-wf-metagenomics-sha1d71a4d15f57a1c32aacdb94cacdeb268205548e.img]
+WARN: Singularity cache directory has not been defined -- Remote image will be stored in the path: /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_work/singularity -- Use the environment variable NXF_SINGULARITY_CACHEDIR to specify a different location
+
+[-        ] fastcat                        -
+[-        ] getVersions                    -
+[-        ] getVersionsCommon              -
+[-        ] getParams                      -
+[-        ] pre…s:download_unpack_taxonomy -
+[-        ] pre…wnload_reference_ref2taxid -
+[-        ] minimap_pipeline:minimap       -
+[-        ] min…p_pipeline:minimapTaxonomy -
+[-        ] min…pipeline:getAlignmentStats -
+[-        ] min…line:createAbundanceTables -
+[-        ] makeReport                     -
+Note: Empty files or those files whose reads have been discarded after filtering based on read length and/or read quality will not appear in the report and will be excluded from subsequent analysis.
+Minimap2 pipeline.
+Preparing databases.
+Using default taxonomy database.
+Using a default database.
+Pulling Singularity image docker://ontresearch/wf-metagenomics:sha1d71a4d15f57a1c32aacdb94cacdeb268205548e [cache /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_work/singularity/ontresearch-wf-metagenomics-sha1d71a4d15f57a1c32aacdb94cacdeb268205548e.img]
+WARN: Singularity cache directory has not been defined -- Remote image will be stored in the path: /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_work/singularity -- Use the environment variable NXF_SINGULARITY_CACHEDIR to specify a different location
+ERROR ~ Error executing process > 'prepare_databases:download_unpack_taxonomy'
+
+Caused by:
+  Failed to pull singularity image
+    command: singularity pull  --name ontresearch-wf-metagenomics-sha1d71a4d15f57a1c32aacdb94cacdeb268205548e.img.pulling.1762712918533 docker://ontresearch/wf-metagenomics:sha1d71a4d15f57a1c32aacdb94cacdeb268205548e > /dev/null
+    status : 127
+    hint   : Try and increase singularity.pullTimeout in the config (current is "20m")
+    message:
+      bash: line 1: singularity: command not found
+
+
+
+ -- Check '.nextflow.log' file for details
+
+[-        ] fastcat                        -
+[-        ] getVersions                    -
+[-        ] getVersionsCommon              -
+[-        ] getParams                      -
+[-        ] pre…s:download_unpack_taxonomy -
+[-        ] pre…wnload_reference_ref2taxid -
+[-        ] minimap_pipeline:minimap       -
+[-        ] min…p_pipeline:minimapTaxonomy -
+[-        ] min…pipeline:getAlignmentStats -
+[-        ] min…line:createAbundanceTables -
+[-        ] makeReport                     -
+Note: Empty files or those files whose reads have been discarded after filtering based on read length and/or read quality will not appear in the report and will be excluded from subsequent analysis.
+Minimap2 pipeline.
+Preparing databases.
+Using default taxonomy database.
+Using a default database.
+Pulling Singularity image docker://ontresearch/wf-metagenomics:sha1d71a4d15f57a1c32aacdb94cacdeb268205548e [cache /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_work/singularity/ontresearch-wf-metagenomics-sha1d71a4d15f57a1c32aacdb94cacdeb268205548e.img]
+Pulling Singularity image docker://ontresearch/wf-common:sha72f3517dd994984e0e2da0b97cb3f23f8540be4b [cache /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_work/singularity/ontresearch-wf-common-sha72f3517dd994984e0e2da0b97cb3f23f8540be4b.img]
+WARN: Singularity cache directory has not been defined -- Remote image will be stored in the path: /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_work/singularity -- Use the environment variable NXF_SINGULARITY_CACHEDIR to specify a different location
+ERROR ~ Error executing process > 'prepare_databases:download_unpack_taxonomy'
+
+Caused by:
+  Failed to pull singularity image
+    command: singularity pull  --name ontresearch-wf-metagenomics-sha1d71a4d15f57a1c32aacdb94cacdeb268205548e.img.pulling.1762712918533 docker://ontresearch/wf-metagenomics:sha1d71a4d15f57a1c32aacdb94cacdeb268205548e > /dev/null
+    status : 127
+    hint   : Try and increase singularity.pullTimeout in the config (current is "20m")
+    message:
+      bash: line 1: singularity: command not found
+
+
+
+ -- Check '.nextflow.log' file for details
+
+RuleException:
+CalledProcessError in file "/mnt/nrdstor/richlab/shared/nanomb/Snakefile", line 657:
+Command ' singularity  exec --home '/mnt/nrdstor/richlab/shared/nanomb' --nv --bind /work,/lustre,/mnt/nrdstor,/home,/mnt/nrdstor/richlab/shared/dorado_models:/models,/mnt/nrdstor/richlab/shared/databases:/refdb /mnt/nrdstor/richlab/shared/nanomb/containers/nextflow.sif bash -c 'set -euo pipefail;  
+      set -euo pipefail
+      mkdir -p "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s" "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_work"
+      nf_cmd=( nextflow run "epi2me-labs/wf-16s" \
+         --fastq "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in" \
+         --min_len "1200" \
+         --min_read_qual "15" \
+         --max_len "1700" \
+         -profile "singularity" \
+         --out_dir "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s" \
+         --minimap2_by_reference \
+         -work-dir "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_work" \
+         -resume )
+
+      echo "=== wf-16s ==="
+      printf "%q " "${nf_cmd[@]}" >&2; echo >&2
+
+      if ! command -v nextflow >/dev/null 2>&1; then
+        echo "[wf16s_run] '\''nextflow'\'' not found in container PATH; trying host PATH." >&2
+      fi
+
+      "${nf_cmd[@]}"
+
+      : > "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s/.wf16s.done"'' returned non-zero exit status 1.
+[Sun Nov  9 12:28:41 2025]
+Error in rule wf16s_run:
+    message: None
+    jobid: 0
+    input: /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in/.staged.ok, /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in, /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in/manifest.tsv
+    output: /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s/.wf16s.done
+    shell:
+        
+      set -euo pipefail
+      mkdir -p "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s" "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_work"
+      nf_cmd=( nextflow run "epi2me-labs/wf-16s" \
+         --fastq "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in" \
+         --min_len "1200" \
+         --min_read_qual "15" \
+         --max_len "1700" \
+         -profile "singularity" \
+         --out_dir "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s" \
+         --minimap2_by_reference \
+         -work-dir "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_work" \
+         -resume )
+
+      echo "=== wf-16s ==="
+      printf "%q " "${nf_cmd[@]}" >&2; echo >&2
+
+      if ! command -v nextflow >/dev/null 2>&1; then
+        echo "[wf16s_run] 'nextflow' not found in container PATH; trying host PATH." >&2
+      fi
+
+      "${nf_cmd[@]}"
+
+      : > "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s/.wf16s.done"
+    
+        (command exited with non-zero exit code)
+Shutting down, this might take some time.
+Exiting because a job execution failed. Look below for error messages
+[Sun Nov  9 12:28:41 2025]
+Error in rule wf16s_run:
+    message: None
+    jobid: 0
+    input: /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in/.staged.ok, /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in, /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in/manifest.tsv
+    output: /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s/.wf16s.done
+    shell:
+        
+      set -euo pipefail
+      mkdir -p "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s" "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_work"
+      nf_cmd=( nextflow run "epi2me-labs/wf-16s" \
+         --fastq "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in" \
+         --min_len "1200" \
+         --min_read_qual "15" \
+         --max_len "1700" \
+         -profile "singularity" \
+         --out_dir "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s" \
+         --minimap2_by_reference \
+         -work-dir "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_work" \
+         -resume )
+
+      echo "=== wf-16s ==="
+      printf "%q " "${nf_cmd[@]}" >&2; echo >&2
+
+      if ! command -v nextflow >/dev/null 2>&1; then
+        echo "[wf16s_run] 'nextflow' not found in container PATH; trying host PATH." >&2
+      fi
+
+      "${nf_cmd[@]}"
+
+      : > "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s/.wf16s.done"
+    
+        (command exited with non-zero exit code)
+Storing output in storage.
+WorkflowError:
+At least one job did not complete successfully.
+srun: error: c2010: task 0: Exited with exit code 1
+[Sun Nov  9 12:28:42 2025]
+Error in rule wf16s_run:
+    message: None
+    jobid: 0
+    input: /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in/.staged.ok, /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in, /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in/manifest.tsv
+    output: /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s/.wf16s.done
+    shell:
+        
+      set -euo pipefail
+      mkdir -p "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s" "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_work"
+      nf_cmd=( nextflow run "epi2me-labs/wf-16s" \
+         --fastq "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in" \
+         --min_len "1200" \
+         --min_read_qual "15" \
+         --max_len "1700" \
+         -profile "singularity" \
+         --out_dir "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s" \
+         --minimap2_by_reference \
+         -work-dir "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_work" \
+         -resume )
+
+      echo "=== wf-16s ==="
+      printf "%q " "${nf_cmd[@]}" >&2; echo >&2
+
+      if ! command -v nextflow >/dev/null 2>&1; then
+        echo "[wf16s_run] 'nextflow' not found in container PATH; trying host PATH." >&2
+      fi
+
+      "${nf_cmd[@]}"
+
+      : > "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s/.wf16s.done"
+    
+        (command exited with non-zero exit code)
+Shutting down, this might take some time.
+Exiting because a job execution failed. Look below for error messages
+[Sun Nov  9 12:28:42 2025]
+Error in rule wf16s_run:
+    message: None
+    jobid: 0
+    input: /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in/.staged.ok, /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in, /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in/manifest.tsv
+    output: /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s/.wf16s.done
+    shell:
+        
+      set -euo pipefail
+      mkdir -p "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s" "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_work"
+      nf_cmd=( nextflow run "epi2me-labs/wf-16s" \
+         --fastq "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in" \
+         --min_len "1200" \
+         --min_read_qual "15" \
+         --max_len "1700" \
+         -profile "singularity" \
+         --out_dir "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s" \
+         --minimap2_by_reference \
+         -work-dir "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_work" \
+         -resume )
+
+      echo "=== wf-16s ==="
+      printf "%q " "${nf_cmd[@]}" >&2; echo >&2
+
+      if ! command -v nextflow >/dev/null 2>&1; then
+        echo "[wf16s_run] 'nextflow' not found in container PATH; trying host PATH." >&2
+      fi
+
+      "${nf_cmd[@]}"
+
+      : > "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s/.wf16s.done"
+    
+        (command exited with non-zero exit code)
+Storing output in storage.
+WorkflowError:
+At least one job did not complete successfully.
+================================================================================
+Trying to restart job 101.
+Select jobs to execute...
+Execute 1 jobs...
+[Sun Nov  9 12:28:44 2025]
+rule wf16s_run:
+    input: /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in/.staged.ok, /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in, /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in/manifest.tsv
+    output: /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s/.wf16s.done
+    jobid: 101
+    reason: Missing output files: /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s/.wf16s.done
+    resources: mem_mb=32000, mem_mib=30518, disk_mb=1000, disk_mib=954, tmpdir=<TBD>, runtime=300, slurm_partition=batch, slurm_account=richlab, slurm_extra=, partition=batch, account=richlab, extra=
+Shell command: 
+      set -euo pipefail
+      mkdir -p "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s" "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_work"
+      nf_cmd=( nextflow run "epi2me-labs/wf-16s" \
+         --fastq "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in" \
+         --min_len "1200" \
+         --min_read_qual "15" \
+         --max_len "1700" \
+         -profile "singularity" \
+         --out_dir "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s" \
+         --minimap2_by_reference \
+         -work-dir "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_work" \
+         -resume )
+
+      echo "=== wf-16s ==="
+      printf "%q " "${nf_cmd[@]}" >&2; echo >&2
+
+      if ! command -v nextflow >/dev/null 2>&1; then
+        echo "[wf16s_run] 'nextflow' not found in container PATH; trying host PATH." >&2
+      fi
+
+      "${nf_cmd[@]}"
+
+      : > "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s/.wf16s.done"
+    
+Job 101 has been submitted with SLURM jobid 12771011 (log: /mnt/nrdstor/richlab/shared/nanomb/.snakemake/slurm_logs/rule_wf16s_run/12771011.log).
+[Sun Nov  9 12:29:24 2025]
+Error in rule wf16s_run:
+    message: SLURM-job '12771011' failed, SLURM status is: 'FAILED'. For further error details see the cluster/cloud log and the log files of the involved rule(s).
+    jobid: 101
+    input: /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in/.staged.ok, /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in, /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in/manifest.tsv
+    output: /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s/.wf16s.done
+    log: /mnt/nrdstor/richlab/shared/nanomb/.snakemake/slurm_logs/rule_wf16s_run/12771011.log (check log file(s) for error details)
+    shell:
+        
+      set -euo pipefail
+      mkdir -p "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s" "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_work"
+      nf_cmd=( nextflow run "epi2me-labs/wf-16s" \
+         --fastq "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in" \
+         --min_len "1200" \
+         --min_read_qual "15" \
+         --max_len "1700" \
+         -profile "singularity" \
+         --out_dir "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s" \
+         --minimap2_by_reference \
+         -work-dir "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_work" \
+         -resume )
+
+      echo "=== wf-16s ==="
+      printf "%q " "${nf_cmd[@]}" >&2; echo >&2
+
+      if ! command -v nextflow >/dev/null 2>&1; then
+        echo "[wf16s_run] 'nextflow' not found in container PATH; trying host PATH." >&2
+      fi
+
+      "${nf_cmd[@]}"
+
+      : > "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s/.wf16s.done"
+    
+        (command exited with non-zero exit code)
+    external_jobid: 12771011
+Logfile /mnt/nrdstor/richlab/shared/nanomb/.snakemake/slurm_logs/rule_wf16s_run/12771011.log:
+================================================================================
+host: c2010.swan.hcc.unl.edu
+Building DAG of jobs...
+Updating checkpoint dependencies.
+Using shell: /usr/bin/bash
+Provided remote nodes: 1
+Select jobs to execute...
+Execute 1 jobs...
+
+[Sun Nov  9 12:28:46 2025]
+rule wf16s_run:
+    input: /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in/.staged.ok, /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in, /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in/manifest.tsv
+    output: /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s/.wf16s.done
+    jobid: 0
+    reason: Forced execution
+    resources: mem_mb=32000, mem_mib=30518, disk_mb=1000, disk_mib=954, tmpdir=<TBD>, runtime=300, slurm_partition=batch, slurm_account=richlab, slurm_extra=, partition=batch, account=richlab, extra=
+Shell command: 
+      set -euo pipefail
+      mkdir -p "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s" "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_work"
+      nf_cmd=( nextflow run "epi2me-labs/wf-16s" \
+         --fastq "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in" \
+         --min_len "1200" \
+         --min_read_qual "15" \
+         --max_len "1700" \
+         -profile "singularity" \
+         --out_dir "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s" \
+         --minimap2_by_reference \
+         -work-dir "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_work" \
+         -resume )
+
+      echo "=== wf-16s ==="
+      printf "%q " "${nf_cmd[@]}" >&2; echo >&2
+
+      if ! command -v nextflow >/dev/null 2>&1; then
+        echo "[wf16s_run] 'nextflow' not found in container PATH; trying host PATH." >&2
+      fi
+
+      "${nf_cmd[@]}"
+
+      : > "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s/.wf16s.done"
+    
+host: c2010.swan.hcc.unl.edu
+Building DAG of jobs...
+Updating checkpoint dependencies.
+Using shell: /usr/bin/bash
+Provided cores: 1 (use --cores to define parallelism)
+Rules claiming more threads will be scaled down.
+Select jobs to execute...
+Execute 1 jobs...
+
+[Sun Nov  9 12:28:48 2025]
+localrule wf16s_run:
+    input: /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in/.staged.ok, /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in, /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in/manifest.tsv
+    output: /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s/.wf16s.done
+    jobid: 0
+    reason: Forced execution
+    resources: mem_mb=32000, mem_mib=30518, disk_mb=1000, disk_mib=954, tmpdir=/tmp, runtime=300, slurm_partition=batch, slurm_account=richlab, slurm_extra=, partition=batch, account=richlab, extra=
+Shell command: 
+      set -euo pipefail
+      mkdir -p "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s" "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_work"
+      nf_cmd=( nextflow run "epi2me-labs/wf-16s" \
+         --fastq "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in" \
+         --min_len "1200" \
+         --min_read_qual "15" \
+         --max_len "1700" \
+         -profile "singularity" \
+         --out_dir "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s" \
+         --minimap2_by_reference \
+         -work-dir "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_work" \
+         -resume )
+
+      echo "=== wf-16s ==="
+      printf "%q " "${nf_cmd[@]}" >&2; echo >&2
+
+      if ! command -v nextflow >/dev/null 2>&1; then
+        echo "[wf16s_run] 'nextflow' not found in container PATH; trying host PATH." >&2
+      fi
+
+      "${nf_cmd[@]}"
+
+      : > "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s/.wf16s.done"
+    
+Activating singularity image /mnt/nrdstor/richlab/shared/nanomb/containers/nextflow.sif
+INFO:    Environment variable SINGULARITYENV_HOME is set, but APPTAINERENV_HOME is preferred
+INFO:    Environment variable SINGULARITYENV_NXF_ASSETS is set, but APPTAINERENV_NXF_ASSETS is preferred
+INFO:    Environment variable SINGULARITYENV_NXF_WORK is set, but APPTAINERENV_NXF_WORK is preferred
+INFO:    Environment variable SINGULARITYENV_NXF_HOME is set, but APPTAINERENV_NXF_HOME is preferred
+WARNING: Overriding HOME environment variable with SINGULARITYENV_HOME is not permitted
+=== wf-16s ===
+nextflow run epi2me-labs/wf-16s --fastq /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in --min_len 1200 --min_read_qual 15 --max_len 1700 -profile singularity --out_dir /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s --minimap2_by_reference -work-dir /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_work -resume 
+
+ N E X T F L O W   ~  version 25.10.0
+
+Launching `https://github.com/epi2me-labs/wf-16s` [cheeky_minsky] DSL2 - revision: 739009dea1 [master]
+
+WARN: NEXTFLOW RECURSION IS A PREVIEW FEATURE - SYNTAX AND FUNCTIONALITY CAN CHANGE IN FUTURE RELEASES
+
+||||||||||   _____ ____ ___ ____  __  __ _____
+||||||||||  | ____|  _ \_ _|___ \|  \/  | ____|
+|||||       |  _| | |_) | |  __) | |\/| |  _|
+|||||       | |___|  __/| | / __/| |  | | |__
+||||||||||  |_____|_|  |___|_____|_|  |_|_____|
+||||||||||  wf-16s v1.6.0-g739009d
+--------------------------------------------------------------------------------
+Core Nextflow options
+  revision             : master
+  runName              : cheeky_minsky
+  containerEngine      : singularity
+  container            : [withLabel:wfmetagenomics:ontresearch/wf-metagenomics:sha1d71a4d15f57a1c32aacdb94cacdeb268205548e, withLabel:wf_common:ontresearch/wf-common:sha72f3517dd994984e0e2da0b97cb3f23f8540be4b]
+  launchDir            : /mnt/nrdstor/richlab/shared/nanomb
+  workDir              : /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_work
+  projectDir           : /mnt/nrdstor/richlab/shared/datasets/16s/tmp/wf16s_work/.nxf/assets/epi2me-labs/wf-16s
+  userName             : aliciarich
+  profile              : singularity
+  configFiles          : /mnt/nrdstor/richlab/shared/datasets/16s/tmp/wf16s_work/.nxf/assets/epi2me-labs/wf-16s/nextflow.config
+
+Input Options
+  fastq                : /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in
+
+Minimap2 Options
+  minimap2_by_reference: true
+
+Output Options
+  out_dir              : /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s
+
+Advanced Options
+  min_len              : 1200
+  min_read_qual        : 15
+  max_len              : 1700
+
+!! Only displaying parameters that differ from the pipeline defaults !!
+--------------------------------------------------------------------------------
+If you use epi2me-labs/wf-16s for your analysis please cite:
+
+* The nf-core framework
+  https://doi.org/10.1038/s41587-020-0439-x
+
+
+--------------------------------------------------------------------------------
+This is epi2me-labs/wf-16s v1.6.0-g739009d.
+--------------------------------------------------------------------------------
+Checking inputs.
+Searching input for [.fastq, .fastq.gz, .fq, .fq.gz] files.
+[-        ] fastcat                        -
+[-        ] getVersions                    -
+[-        ] getVersionsCommon              -
+[-        ] getParams                      -
+[-        ] pre…s:download_unpack_taxonomy -
+[-        ] pre…wnload_reference_ref2taxid -
+Note: Empty files or those files whose reads have been discarded after filtering based on read length and/or read quality will not appear in the report and will be excluded from subsequent analysis.
+Minimap2 pipeline.
+Preparing databases.
+Using default taxonomy database.
+Using a default database.
+
+[-        ] fastcat                        -
+[-        ] getVersions                    -
+[-        ] getVersionsCommon              -
+[-        ] getParams                      -
+[-        ] pre…s:download_unpack_taxonomy -
+[-        ] pre…wnload_reference_ref2taxid -
+[-        ] minimap_pipeline:minimap       -
+[-        ] min…p_pipeline:minimapTaxonomy -
+[-        ] min…pipeline:getAlignmentStats -
+[-        ] min…line:createAbundanceTables -
+[-        ] makeReport                     -
+Note: Empty files or those files whose reads have been discarded after filtering based on read length and/or read quality will not appear in the report and will be excluded from subsequent analysis.
+Minimap2 pipeline.
+Preparing databases.
+Using default taxonomy database.
+Using a default database.
+Pulling Singularity image docker://ontresearch/wf-metagenomics:sha1d71a4d15f57a1c32aacdb94cacdeb268205548e [cache /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_work/singularity/ontresearch-wf-metagenomics-sha1d71a4d15f57a1c32aacdb94cacdeb268205548e.img]
+Pulling Singularity image docker://ontresearch/wf-common:sha72f3517dd994984e0e2da0b97cb3f23f8540be4b [cache /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_work/singularity/ontresearch-wf-common-sha72f3517dd994984e0e2da0b97cb3f23f8540be4b.img]
+WARN: Singularity cache directory has not been defined -- Remote image will be stored in the path: /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_work/singularity -- Use the environment variable NXF_SINGULARITY_CACHEDIR to specify a different location
+ERROR ~ Error executing process > 'prepare_databases:download_unpack_taxonomy'
+
+Caused by:
+  Failed to pull singularity image
+    command: singularity pull  --name ontresearch-wf-metagenomics-sha1d71a4d15f57a1c32aacdb94cacdeb268205548e.img.pulling.1762712948269 docker://ontresearch/wf-metagenomics:sha1d71a4d15f57a1c32aacdb94cacdeb268205548e > /dev/null
+    status : 127
+    hint   : Try and increase singularity.pullTimeout in the config (current is "20m")
+    message:
+      bash: line 1: singularity: command not found
+
+
+
+ -- Check '.nextflow.log' file for details
+
+[-        ] fastcat                        -
+[-        ] getVersions                    -
+[-        ] getVersionsCommon              -
+[-        ] getParams                      -
+[-        ] pre…s:download_unpack_taxonomy -
+[-        ] pre…wnload_reference_ref2taxid -
+[-        ] minimap_pipeline:minimap       -
+[-        ] min…p_pipeline:minimapTaxonomy -
+[-        ] min…pipeline:getAlignmentStats -
+[-        ] min…line:createAbundanceTables -
+[-        ] makeReport                     -
+Note: Empty files or those files whose reads have been discarded after filtering based on read length and/or read quality will not appear in the report and will be excluded from subsequent analysis.
+Minimap2 pipeline.
+Preparing databases.
+Using default taxonomy database.
+Using a default database.
+Pulling Singularity image docker://ontresearch/wf-metagenomics:sha1d71a4d15f57a1c32aacdb94cacdeb268205548e [cache /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_work/singularity/ontresearch-wf-metagenomics-sha1d71a4d15f57a1c32aacdb94cacdeb268205548e.img]
+Pulling Singularity image docker://ontresearch/wf-common:sha72f3517dd994984e0e2da0b97cb3f23f8540be4b [cache /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_work/singularity/ontresearch-wf-common-sha72f3517dd994984e0e2da0b97cb3f23f8540be4b.img]
+WARN: Singularity cache directory has not been defined -- Remote image will be stored in the path: /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_work/singularity -- Use the environment variable NXF_SINGULARITY_CACHEDIR to specify a different location
+ERROR ~ Error executing process > 'prepare_databases:download_unpack_taxonomy'
+
+Caused by:
+  Failed to pull singularity image
+    command: singularity pull  --name ontresearch-wf-metagenomics-sha1d71a4d15f57a1c32aacdb94cacdeb268205548e.img.pulling.1762712948269 docker://ontresearch/wf-metagenomics:sha1d71a4d15f57a1c32aacdb94cacdeb268205548e > /dev/null
+    status : 127
+    hint   : Try and increase singularity.pullTimeout in the config (current is "20m")
+    message:
+      bash: line 1: singularity: command not found
+
+
+
+ -- Check '.nextflow.log' file for details
+
+RuleException:
+CalledProcessError in file "/mnt/nrdstor/richlab/shared/nanomb/Snakefile", line 657:
+Command ' singularity  exec --home '/mnt/nrdstor/richlab/shared/nanomb' --nv --bind /work,/lustre,/mnt/nrdstor,/home,/mnt/nrdstor/richlab/shared/dorado_models:/models,/mnt/nrdstor/richlab/shared/databases:/refdb /mnt/nrdstor/richlab/shared/nanomb/containers/nextflow.sif bash -c 'set -euo pipefail;  
+      set -euo pipefail
+      mkdir -p "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s" "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_work"
+      nf_cmd=( nextflow run "epi2me-labs/wf-16s" \
+         --fastq "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in" \
+         --min_len "1200" \
+         --min_read_qual "15" \
+         --max_len "1700" \
+         -profile "singularity" \
+         --out_dir "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s" \
+         --minimap2_by_reference \
+         -work-dir "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_work" \
+         -resume )
+
+      echo "=== wf-16s ==="
+      printf "%q " "${nf_cmd[@]}" >&2; echo >&2
+
+      if ! command -v nextflow >/dev/null 2>&1; then
+        echo "[wf16s_run] '\''nextflow'\'' not found in container PATH; trying host PATH." >&2
+      fi
+
+      "${nf_cmd[@]}"
+
+      : > "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s/.wf16s.done"'' returned non-zero exit status 1.
+[Sun Nov  9 12:29:11 2025]
+Error in rule wf16s_run:
+    message: None
+    jobid: 0
+    input: /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in/.staged.ok, /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in, /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in/manifest.tsv
+    output: /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s/.wf16s.done
+    shell:
+        
+      set -euo pipefail
+      mkdir -p "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s" "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_work"
+      nf_cmd=( nextflow run "epi2me-labs/wf-16s" \
+         --fastq "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in" \
+         --min_len "1200" \
+         --min_read_qual "15" \
+         --max_len "1700" \
+         -profile "singularity" \
+         --out_dir "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s" \
+         --minimap2_by_reference \
+         -work-dir "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_work" \
+         -resume )
+
+      echo "=== wf-16s ==="
+      printf "%q " "${nf_cmd[@]}" >&2; echo >&2
+
+      if ! command -v nextflow >/dev/null 2>&1; then
+        echo "[wf16s_run] 'nextflow' not found in container PATH; trying host PATH." >&2
+      fi
+
+      "${nf_cmd[@]}"
+
+      : > "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s/.wf16s.done"
+    
+        (command exited with non-zero exit code)
+Shutting down, this might take some time.
+Exiting because a job execution failed. Look below for error messages
+[Sun Nov  9 12:29:11 2025]
+Error in rule wf16s_run:
+    message: None
+    jobid: 0
+    input: /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in/.staged.ok, /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in, /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in/manifest.tsv
+    output: /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s/.wf16s.done
+    shell:
+        
+      set -euo pipefail
+      mkdir -p "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s" "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_work"
+      nf_cmd=( nextflow run "epi2me-labs/wf-16s" \
+         --fastq "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in" \
+         --min_len "1200" \
+         --min_read_qual "15" \
+         --max_len "1700" \
+         -profile "singularity" \
+         --out_dir "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s" \
+         --minimap2_by_reference \
+         -work-dir "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_work" \
+         -resume )
+
+      echo "=== wf-16s ==="
+      printf "%q " "${nf_cmd[@]}" >&2; echo >&2
+
+      if ! command -v nextflow >/dev/null 2>&1; then
+        echo "[wf16s_run] 'nextflow' not found in container PATH; trying host PATH." >&2
+      fi
+
+      "${nf_cmd[@]}"
+
+      : > "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s/.wf16s.done"
+    
+        (command exited with non-zero exit code)
+Storing output in storage.
+WorkflowError:
+At least one job did not complete successfully.
+srun: error: c2010: task 0: Exited with exit code 1
+[Sun Nov  9 12:29:11 2025]
+Error in rule wf16s_run:
+    message: None
+    jobid: 0
+    input: /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in/.staged.ok, /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in, /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in/manifest.tsv
+    output: /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s/.wf16s.done
+    shell:
+        
+      set -euo pipefail
+      mkdir -p "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s" "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_work"
+      nf_cmd=( nextflow run "epi2me-labs/wf-16s" \
+         --fastq "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in" \
+         --min_len "1200" \
+         --min_read_qual "15" \
+         --max_len "1700" \
+         -profile "singularity" \
+         --out_dir "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s" \
+         --minimap2_by_reference \
+         -work-dir "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_work" \
+         -resume )
+
+      echo "=== wf-16s ==="
+      printf "%q " "${nf_cmd[@]}" >&2; echo >&2
+
+      if ! command -v nextflow >/dev/null 2>&1; then
+        echo "[wf16s_run] 'nextflow' not found in container PATH; trying host PATH." >&2
+      fi
+
+      "${nf_cmd[@]}"
+
+      : > "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s/.wf16s.done"
+    
+        (command exited with non-zero exit code)
+Shutting down, this might take some time.
+Exiting because a job execution failed. Look below for error messages
+[Sun Nov  9 12:29:11 2025]
+Error in rule wf16s_run:
+    message: None
+    jobid: 0
+    input: /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in/.staged.ok, /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in, /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in/manifest.tsv
+    output: /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s/.wf16s.done
+    shell:
+        
+      set -euo pipefail
+      mkdir -p "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s" "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_work"
+      nf_cmd=( nextflow run "epi2me-labs/wf-16s" \
+         --fastq "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in" \
+         --min_len "1200" \
+         --min_read_qual "15" \
+         --max_len "1700" \
+         -profile "singularity" \
+         --out_dir "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s" \
+         --minimap2_by_reference \
+         -work-dir "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_work" \
+         -resume )
+
+      echo "=== wf-16s ==="
+      printf "%q " "${nf_cmd[@]}" >&2; echo >&2
+
+      if ! command -v nextflow >/dev/null 2>&1; then
+        echo "[wf16s_run] 'nextflow' not found in container PATH; trying host PATH." >&2
+      fi
+
+      "${nf_cmd[@]}"
+
+      : > "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s/.wf16s.done"
+    
+        (command exited with non-zero exit code)
+Storing output in storage.
+WorkflowError:
+At least one job did not complete successfully.
+================================================================================
+Cleaning up log files older than 10 day(s).
+Exiting because a job execution failed. Look below for error messages
+[Sun Nov  9 12:30:14 2025]
+Error in rule wf16s_run:
+    message: None
+    jobid: 101
+    input: /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in/.staged.ok, /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in, /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in/manifest.tsv
+    output: /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s/.wf16s.done
+    shell:
+        
+      set -euo pipefail
+      mkdir -p "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s" "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_work"
+      nf_cmd=( nextflow run "epi2me-labs/wf-16s" \
+         --fastq "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in" \
+         --min_len "1200" \
+         --min_read_qual "15" \
+         --max_len "1700" \
+         -profile "singularity" \
+         --out_dir "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s" \
+         --minimap2_by_reference \
+         -work-dir "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_work" \
+         -resume )
+
+      echo "=== wf-16s ==="
+      printf "%q " "${nf_cmd[@]}" >&2; echo >&2
+
+      if ! command -v nextflow >/dev/null 2>&1; then
+        echo "[wf16s_run] 'nextflow' not found in container PATH; trying host PATH." >&2
+      fi
+
+      "${nf_cmd[@]}"
+
+      : > "/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s/.wf16s.done"
+    
+        (command exited with non-zero exit code)
+Complete log(s): /mnt/nrdstor/richlab/shared/nanomb/.snakemake/log/2025-11-09T122713.325435.snakemake.log
+WorkflowError:
+At least one job did not complete successfully.

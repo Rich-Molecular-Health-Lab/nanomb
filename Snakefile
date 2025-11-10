@@ -656,19 +656,13 @@ rule wf16s_run:
         outdir   = WF16S_OUTDIR,
         workdir  = WF16S_WORK,
     shell: r"""
+      set -euo pipefail
       mkdir -p "{params.outdir}" "{params.workdir}"
-      
-      export NXF_HOME="{params.workdir}/.nxf"
-      export NXF_ANSI_LOG=false
-      export NXF_DEFAULT_DSL=2
-      export NXF_SINGULARITY_CACHEDIR="${{APPTAINER_CACHEDIR:-$HOME/.apptainer/cache}}"
-      export SINGULARITY_CACHEDIR="$NXF_SINGULARITY_CACHEDIR"
-      export APPTAINER_CACHEDIR="$NXF_SINGULARITY_CACHEDIR"
-      
+    
       if ! command -v nextflow >/dev/null 2>&1; then
         module load nextflow >/dev/null 2>&1 || true
       fi
-
+    
       nf_profile="{params.profile}"
       if [ "$nf_profile" = "auto" ]; then
         if command -v apptainer >/dev/null 2>&1; then
@@ -681,52 +675,29 @@ rule wf16s_run:
           nf_profile="conda"
         fi
       fi
-
-      echo "[wf16s_run] using per-sample dir layout under: {input.indir}" >&2
-      find "{input.indir}" -mindepth 1 -maxdepth 1 -type d | sort | head -n 8 >&2
-      
-      nf_log="{params.outdir}/wf16s.nextflow.log"
-      nf_report="{params.outdir}/wf16s.report.html"
-      nf_timeline="{params.outdir}/wf16s.timeline.html"
-      nf_trace="{params.outdir}/wf16s.trace.txt"
-      
+    
       nf_cmd=( nextflow run "{params.repo}"
                --fastq "{input.indir}"
                --min_len "{params.minlen}"
                --min_read_qual "{params.min_q}"
                --max_len "{params.maxlen}"
-               --threads "{threads}"
                -profile "$nf_profile"
                --out_dir "{params.outdir}"
                {params.extra}
-               -work-dir "{params.workdir}"
-               -with-report "$nf_report"
-               -with-timeline "$nf_timeline"
-               -with-trace "$nf_trace"
+               -w "{params.workdir}"
                -resume )
+    
+      if [ -n "{params.rev}" ]; then nf_cmd+=( -r "{params.rev}" ); fi
 
-      if [ -n "{params.rev}" ]; then
-        nf_cmd+=( -r "{params.rev}" )
-      fi
-
-      echo "=== wf-16s ===" >&2
+      echo "=== wf-16s via Snakemake ===" >&2
       printf "%q " "${{nf_cmd[@]}}" >&2; echo >&2
 
-      trap '' PIPE
-      set +e
-      {{ "${{nf_cmd[@]}}"; }} >>"$nf_log" 2>&1
-      nf_status=$?
-      set -e
-
-      if [ $nf_status -ne 0 ]; then
-        echo "[wf16s_run] Nextflow exited with code $nf_status; see $nf_log" >&2
-        exit $nf_status
-      fi
+      # Run with plain streaming output
+      {{ "${{nf_cmd[@]}}"; }}
       
       : > "{output.done}"
-
     """
-    
+
 # ---------------- OTU branch ----------------
 rule itgdb_index:
     input:  fasta = ITGDB_FASTA

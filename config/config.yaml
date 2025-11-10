@@ -122,7 +122,7 @@ resources:
   nanoplot_qc:           {threads: 2,  mem_mb: 4000,  runtime: 30,  partition: batch, account: richlab}
 
   stage_wf16s_input:     {threads: 1,  mem_mb: 2000,  runtime: 15,  partition: batch, account: richlab}
-  wf16s_run:             {threads: 16, mem_mb: 32000, runtime: 240, partition: batch, account: richlab}
+  wf16s_run:             {threads: 12, mem_mb: 32000, runtime: 180, partition: batch, account: richlab}
 
   itgdb_index:           {threads: 4,  mem_mb: 8000,  runtime: 60,  partition: batch, account: richlab}
   itgdb_taxmap:          {threads: 1,  mem_mb: 2000,  runtime: 15,  partition: batch, account: richlab}

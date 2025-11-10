@@ -1,0 +1,230 @@
+Nov-10 11:34:15.253 [main] DEBUG nextflow.cli.Launcher - $> nextflow run epi2me-labs/wf-16s --fastq /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in --min_len 1200 --min_read_qual 15 --max_len 1800 --threads 16 -profile singularity --out_dir /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s --minimap2_by_reference -work-dir /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_work -resume
+Nov-10 11:34:15.822 [main] DEBUG nextflow.cli.CmdRun - N E X T F L O W  ~  version 25.04.6
+Nov-10 11:34:15.859 [main] DEBUG nextflow.plugin.PluginsFacade - Setting up plugin manager > mode=prod; embedded=false; plugins-dir=/work/richlab/aliciarich/plugins; core-plugins: nf-amazon@2.15.0,nf-azure@1.16.0,nf-cloudcache@0.4.3,nf-codecommit@0.2.3,nf-console@1.2.1,nf-google@1.21.1,nf-k8s@1.0.0,nf-tower@1.11.4,nf-wave@1.12.1
+Nov-10 11:34:15.881 [main] INFO  o.pf4j.DefaultPluginStatusProvider - Enabled plugins: []
+Nov-10 11:34:15.882 [main] INFO  o.pf4j.DefaultPluginStatusProvider - Disabled plugins: []
+Nov-10 11:34:15.884 [main] INFO  org.pf4j.DefaultPluginManager - PF4J version 3.12.0 in 'deployment' mode
+Nov-10 11:34:15.894 [main] INFO  org.pf4j.AbstractPluginManager - No plugins
+Nov-10 11:34:15.907 [main] DEBUG nextflow.scm.ProviderConfig - Using SCM config path: /work/richlab/aliciarich/scm
+Nov-10 11:34:16.547 [main] DEBUG nextflow.scm.AssetManager - Git config: /mnt/nrdstor/richlab/shared/datasets/16s/tmp/.nxf/assets/epi2me-labs/wf-16s/.git/config; branch: null; remote: origin; url: https://github.com/epi2me-labs/wf-16s.git
+Nov-10 11:34:16.578 [main] DEBUG nextflow.scm.RepositoryFactory - Found Git repository result: [RepositoryFactory]
+Nov-10 11:34:16.586 [main] DEBUG nextflow.scm.AssetManager - Git config: /mnt/nrdstor/richlab/shared/datasets/16s/tmp/.nxf/assets/epi2me-labs/wf-16s/.git/config; branch: null; remote: origin; url: https://github.com/epi2me-labs/wf-16s.git
+Nov-10 11:34:18.029 [main] DEBUG nextflow.scm.AssetManager - Update submodules [wf-metagenomics]
+Nov-10 11:34:18.605 [main] DEBUG nextflow.config.ConfigBuilder - Found config base: /mnt/nrdstor/richlab/shared/datasets/16s/tmp/.nxf/assets/epi2me-labs/wf-16s/nextflow.config
+Nov-10 11:34:18.606 [main] DEBUG nextflow.config.ConfigBuilder - Found config local: /mnt/nrdstor/richlab/shared/nanomb/nextflow.config
+Nov-10 11:34:18.607 [main] DEBUG nextflow.config.ConfigBuilder - Parsing config file: /mnt/nrdstor/richlab/shared/datasets/16s/tmp/.nxf/assets/epi2me-labs/wf-16s/nextflow.config
+Nov-10 11:34:18.608 [main] DEBUG nextflow.config.ConfigBuilder - Parsing config file: /mnt/nrdstor/richlab/shared/nanomb/nextflow.config
+Nov-10 11:34:18.615 [main] DEBUG n.secret.LocalSecretsProvider - Secrets store: /work/richlab/aliciarich/secrets/store.json
+Nov-10 11:34:18.617 [main] DEBUG nextflow.secret.SecretsLoader - Discovered secrets providers: [nextflow.secret.LocalSecretsProvider@5edc3e29] - activable => nextflow.secret.LocalSecretsProvider@5edc3e29
+Nov-10 11:34:18.627 [main] DEBUG nextflow.config.ConfigBuilder - Applying config profile: `singularity`
+Nov-10 11:34:18.722 [main] DEBUG nextflow.config.ConfigBuilder - Applying config profile: `singularity`
+Nov-10 11:34:18.781 [main] DEBUG nextflow.config.ConfigBuilder - Available config profiles: [standard, apptainer, conda, singularity, awsbatch, local, docker]
+Nov-10 11:34:18.844 [main] DEBUG nextflow.cli.CmdRun - Applied DSL=2 from script declaration
+Nov-10 11:34:18.845 [main] DEBUG nextflow.cli.CmdRun - Launching `https://github.com/epi2me-labs/wf-16s` [mad_ardinghelli] DSL2 - revision: 739009dea1 [master]
+Nov-10 11:34:18.846 [main] DEBUG nextflow.plugin.PluginsFacade - Plugins default=[]
+Nov-10 11:34:18.846 [main] DEBUG nextflow.plugin.PluginsFacade - Plugins resolved requirement=[]
+Nov-10 11:34:18.894 [main] DEBUG nextflow.Session - Session UUID: 176b5e16-dd03-4785-b244-8f42657bcec8
+Nov-10 11:34:18.895 [main] DEBUG nextflow.Session - Run name: mad_ardinghelli
+Nov-10 11:34:18.895 [main] DEBUG nextflow.Session - Executor pool size: 16
+Nov-10 11:34:18.911 [main] DEBUG nextflow.file.FilePorter - File porter settings maxRetries=3; maxTransfers=50; pollTimeout=null
+Nov-10 11:34:18.915 [main] DEBUG nextflow.util.ThreadPoolBuilder - Creating thread pool 'FileTransfer' minSize=10; maxSize=48; workQueue=LinkedBlockingQueue[-1]; allowCoreThreadTimeout=false
+Nov-10 11:34:18.938 [main] DEBUG nextflow.cli.CmdRun - 
+  Version: 25.04.6 build 5954
+  Created: 01-07-2025 11:27 UTC (06:27 CDT)
+  System: Linux 4.18.0-553.75.1.el8_10.x86_64
+  Runtime: Groovy 4.0.26 on OpenJDK 64-Bit Server VM 17.0.14+1-b1367.22
+  Encoding: UTF-8 (UTF-8)
+  Process: 2350083@c1908.swan.hcc.unl.edu [10.138.19.8]
+  CPUs: 16 - Mem: 62.5 GB (62 GB) - Swap: 0 (0)
+Nov-10 11:34:18.976 [main] DEBUG nextflow.Session - Work-dir: /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_work [ceph]
+Nov-10 11:34:19.001 [main] DEBUG nextflow.executor.ExecutorFactory - Extension executors providers=[]
+Nov-10 11:34:19.010 [main] DEBUG nextflow.Session - Observer factory: DefaultObserverFactory
+Nov-10 11:34:19.025 [main] DEBUG nextflow.Session - Observer factory (v2): LinObserverFactory
+Nov-10 11:34:19.057 [main] DEBUG nextflow.cache.CacheFactory - Using Nextflow cache factory: nextflow.cache.DefaultCacheFactory
+Nov-10 11:34:19.065 [main] DEBUG nextflow.util.CustomThreadPool - Creating default thread pool > poolSize: 17; maxThreads: 1000
+Nov-10 11:34:19.283 [main] DEBUG nextflow.Session - Session start
+Nov-10 11:34:19.286 [main] DEBUG nextflow.trace.TraceFileObserver - Workflow started -- trace file: /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s/execution/trace.txt
+Nov-10 11:34:19.293 [main] DEBUG nextflow.Session - Using default localLib path: /mnt/nrdstor/richlab/shared/datasets/16s/tmp/.nxf/assets/epi2me-labs/wf-16s/lib
+Nov-10 11:34:19.296 [main] DEBUG nextflow.Session - Adding to the classpath library: /mnt/nrdstor/richlab/shared/datasets/16s/tmp/.nxf/assets/epi2me-labs/wf-16s/lib
+Nov-10 11:34:19.297 [main] DEBUG nextflow.Session - Adding to the classpath library: /mnt/nrdstor/richlab/shared/datasets/16s/tmp/.nxf/assets/epi2me-labs/wf-16s/lib/nfcore_external_java_deps.jar
+Nov-10 11:34:20.550 [main] DEBUG nextflow.script.ScriptRunner - > Launching execution
+Nov-10 11:34:23.544 [main] WARN  nextflow.NextflowMeta$Preview - NEXTFLOW RECURSION IS A PREVIEW FEATURE - SYNTAX AND FUNCTIONALITY CAN CHANGE IN FUTURE RELEASES
+Nov-10 11:34:23.780 [main] INFO  nextflow.Nextflow - 
+[0;92m||||||||||   [0m[2m_____ ____ ___ ____  __  __ _____
+[0;92m||||||||||  [0m[2m| ____|  _ \_ _|___ \|  \/  | ____|
+[0;33m|||||       [0m[2m|  _| | |_) | |  __) | |\/| |  _|
+[0;33m|||||       [0m[2m| |___|  __/| | / __/| |  | | |__
+[0;94m||||||||||  [0m[2m|_____|_|  |___|_____|_|  |_|_____|
+[0;94m||||||||||  [0m[1mwf-16s v1.6.0-g739009d[0m
+[2m--------------------------------------------------------------------------------[0m
+[1mCore Nextflow options[0m
+  [0;34mrevision             : [0;32mmaster[0m
+  [0;34mrunName              : [0;32mmad_ardinghelli[0m
+  [0;34mcontainerEngine      : [0;32msingularity[0m
+  [0;34mcontainer            : [0;32m[withLabel:wfmetagenomics:ontresearch/wf-metagenomics:sha1d71a4d15f57a1c32aacdb94cacdeb268205548e, withLabel:wf_common:ontresearch/wf-common:sha72f3517dd994984e0e2da0b97cb3f23f8540be4b][0m
+  [0;34mlaunchDir            : [0;32m/mnt/nrdstor/richlab/shared/nanomb[0m
+  [0;34mworkDir              : [0;32m/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_work[0m
+  [0;34mprojectDir           : [0;32m/mnt/nrdstor/richlab/shared/datasets/16s/tmp/.nxf/assets/epi2me-labs/wf-16s[0m
+  [0;34muserName             : [0;32maliciarich[0m
+  [0;34mprofile              : [0;32msingularity[0m
+  [0;34mconfigFiles          : [0;32m/mnt/nrdstor/richlab/shared/datasets/16s/tmp/.nxf/assets/epi2me-labs/wf-16s/nextflow.config, /mnt/nrdstor/richlab/shared/nanomb/nextflow.config[0m
+
+[1mInput Options[0m
+  [0;34mfastq                : [0;32m/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in[0m
+
+[1mMinimap2 Options[0m
+  [0;34mminimap2_by_reference: [0;32mtrue[0m
+
+[1mOutput Options[0m
+  [0;34mout_dir              : [0;32m/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/wf16s[0m
+
+[1mAdvanced Options[0m
+  [0;34mmin_len              : [0;32m1200[0m
+  [0;34mmin_read_qual        : [0;32m15[0m
+  [0;34mmax_len              : [0;32m1800[0m
+  [0;34mthreads              : [0;32m16[0m
+
+!! Only displaying parameters that differ from the pipeline defaults !!
+[2m--------------------------------------------------------------------------------[0m
+If you use epi2me-labs/wf-16s for your analysis please cite:
+
+* The nf-core framework
+  https://doi.org/10.1038/s41587-020-0439-x
+
+
+[2m--------------------------------------------------------------------------------[0m
+This is epi2me-labs/wf-16s v1.6.0-g739009d.
+[2m--------------------------------------------------------------------------------[0m
+Nov-10 11:34:24.335 [main] INFO  nextflow.Nextflow - Checking inputs.
+Nov-10 11:34:24.348 [main] INFO  nextflow.Nextflow - Searching input for [.fastq, .fastq.gz, .fq, .fq.gz] files.
+Nov-10 11:34:24.570 [main] DEBUG nextflow.script.ProcessConfig - Config settings `withLabel:wf_common` matches labels `ingress,wf_common` for process with name fastcat
+Nov-10 11:34:24.576 [main] DEBUG nextflow.executor.ExecutorFactory - << taskConfig executor: null
+Nov-10 11:34:24.577 [main] DEBUG nextflow.executor.ExecutorFactory - >> processorType: 'local'
+Nov-10 11:34:24.581 [main] DEBUG nextflow.executor.Executor - [warm up] executor > local
+Nov-10 11:34:24.586 [main] DEBUG n.processor.LocalPollingMonitor - Creating local task monitor for executor 'local' > cpus=16; memory=62.5 GB; capacity=16; pollInterval=100ms; dumpInterval=5m
+Nov-10 11:34:24.588 [main] DEBUG n.processor.TaskPollingMonitor - >>> barrier register (monitor: local)
+Nov-10 11:34:24.606 [main] DEBUG nextflow.processor.TaskProcessor - Creating process 'fastcat': maxForks=0; fair=false; array=0
+Nov-10 11:34:24.642 [main] INFO  nextflow.Nextflow - Note: Empty files or those files whose reads have been discarded after filtering based on read length and/or read quality will not appear in the report and will be excluded from subsequent analysis.
+Nov-10 11:34:24.646 [main] DEBUG nextflow.script.ProcessConfig - Config settings `withLabel:wfmetagenomics` matches labels `wfmetagenomics` for process with name getVersions
+Nov-10 11:34:24.647 [main] DEBUG nextflow.executor.ExecutorFactory - << taskConfig executor: null
+Nov-10 11:34:24.648 [main] DEBUG nextflow.executor.ExecutorFactory - >> processorType: 'local'
+Nov-10 11:34:24.648 [main] DEBUG nextflow.processor.TaskProcessor - Creating process 'getVersions': maxForks=0; fair=false; array=0
+Nov-10 11:34:24.652 [main] DEBUG nextflow.script.ProcessConfig - Config settings `withLabel:wf_common` matches labels `wf_common` for process with name getVersionsCommon
+Nov-10 11:34:24.653 [main] DEBUG nextflow.executor.ExecutorFactory - << taskConfig executor: null
+Nov-10 11:34:24.653 [main] DEBUG nextflow.executor.ExecutorFactory - >> processorType: 'local'
+Nov-10 11:34:24.653 [main] DEBUG nextflow.processor.TaskProcessor - Creating process 'getVersionsCommon': maxForks=0; fair=false; array=0
+Nov-10 11:34:24.656 [main] DEBUG nextflow.script.ProcessConfig - Config settings `withLabel:wf_common` matches labels `wf_common` for process with name getParams
+Nov-10 11:34:24.657 [main] DEBUG nextflow.executor.ExecutorFactory - << taskConfig executor: null
+Nov-10 11:34:24.657 [main] DEBUG nextflow.executor.ExecutorFactory - >> processorType: 'local'
+Nov-10 11:34:24.658 [main] DEBUG nextflow.processor.TaskProcessor - Creating process 'getParams': maxForks=0; fair=false; array=0
+Nov-10 11:34:24.659 [main] INFO  nextflow.Nextflow - Minimap2 pipeline.
+Nov-10 11:34:24.660 [main] INFO  nextflow.Nextflow - Preparing databases.
+Nov-10 11:34:24.661 [main] INFO  nextflow.Nextflow - Using default taxonomy database.
+Nov-10 11:34:24.671 [main] DEBUG nextflow.script.ProcessConfig - Config settings `withLabel:wfmetagenomics` matches labels `wfmetagenomics` for process with name prepare_databases:download_unpack_taxonomy
+Nov-10 11:34:24.672 [main] DEBUG nextflow.executor.ExecutorFactory - << taskConfig executor: null
+Nov-10 11:34:24.672 [main] DEBUG nextflow.executor.ExecutorFactory - >> processorType: 'local'
+Nov-10 11:34:24.673 [main] DEBUG nextflow.processor.TaskProcessor - Creating process 'prepare_databases:download_unpack_taxonomy': maxForks=0; fair=false; array=0
+Nov-10 11:34:24.676 [main] INFO  nextflow.Nextflow - Using a default database.
+Nov-10 11:34:24.689 [main] DEBUG nextflow.script.ProcessConfig - Config settings `withLabel:wfmetagenomics` matches labels `wfmetagenomics` for process with name prepare_databases:download_reference_ref2taxid
+Nov-10 11:34:24.691 [main] DEBUG nextflow.executor.ExecutorFactory - << taskConfig executor: null
+Nov-10 11:34:24.691 [main] DEBUG nextflow.executor.ExecutorFactory - >> processorType: 'local'
+Nov-10 11:34:24.691 [main] DEBUG nextflow.processor.TaskProcessor - Creating process 'prepare_databases:download_reference_ref2taxid': maxForks=0; fair=false; array=0
+Nov-10 11:34:24.712 [main] DEBUG nextflow.script.ProcessConfig - Config settings `withLabel:wfmetagenomics` matches labels `wfmetagenomics` for process with name minimap_pipeline:minimap
+Nov-10 11:34:24.714 [main] DEBUG nextflow.executor.ExecutorFactory - << taskConfig executor: null
+Nov-10 11:34:24.714 [main] DEBUG nextflow.executor.ExecutorFactory - >> processorType: 'local'
+Nov-10 11:34:24.715 [main] DEBUG nextflow.processor.TaskProcessor - Creating process 'minimap_pipeline:minimap': maxForks=0; fair=false; array=0
+Nov-10 11:34:24.725 [main] DEBUG nextflow.script.ProcessConfig - Config settings `withLabel:wfmetagenomics` matches labels `wfmetagenomics` for process with name minimap_pipeline:minimapTaxonomy
+Nov-10 11:34:24.726 [main] DEBUG nextflow.executor.ExecutorFactory - << taskConfig executor: null
+Nov-10 11:34:24.727 [main] DEBUG nextflow.executor.ExecutorFactory - >> processorType: 'local'
+Nov-10 11:34:24.728 [main] DEBUG nextflow.processor.TaskProcessor - Creating process 'minimap_pipeline:minimapTaxonomy': maxForks=0; fair=false; array=0
+Nov-10 11:34:24.738 [main] DEBUG nextflow.script.ProcessConfig - Config settings `withLabel:wfmetagenomics` matches labels `wfmetagenomics` for process with name minimap_pipeline:getAlignmentStats
+Nov-10 11:34:24.739 [main] DEBUG nextflow.executor.ExecutorFactory - << taskConfig executor: null
+Nov-10 11:34:24.739 [main] DEBUG nextflow.executor.ExecutorFactory - >> processorType: 'local'
+Nov-10 11:34:24.740 [main] DEBUG nextflow.processor.TaskProcessor - Creating process 'minimap_pipeline:getAlignmentStats': maxForks=0; fair=false; array=0
+Nov-10 11:34:24.757 [main] DEBUG nextflow.script.ProcessConfig - Config settings `withLabel:wfmetagenomics` matches labels `wfmetagenomics` for process with name minimap_pipeline:createAbundanceTables
+Nov-10 11:34:24.758 [main] DEBUG nextflow.executor.ExecutorFactory - << taskConfig executor: null
+Nov-10 11:34:24.758 [main] DEBUG nextflow.executor.ExecutorFactory - >> processorType: 'local'
+Nov-10 11:34:24.759 [main] DEBUG nextflow.processor.TaskProcessor - Creating process 'minimap_pipeline:createAbundanceTables': maxForks=0; fair=false; array=0
+Nov-10 11:34:24.789 [main] DEBUG nextflow.script.ProcessConfig - Config settings `withLabel:wf_common` matches labels `wf_common` for process with name makeReport
+Nov-10 11:34:24.790 [main] DEBUG nextflow.executor.ExecutorFactory - << taskConfig executor: null
+Nov-10 11:34:24.790 [main] DEBUG nextflow.executor.ExecutorFactory - >> processorType: 'local'
+Nov-10 11:34:24.791 [main] DEBUG nextflow.processor.TaskProcessor - Creating process 'makeReport': maxForks=0; fair=false; array=0
+Nov-10 11:34:24.794 [main] DEBUG nextflow.Session - Workflow process names [dsl2]: move_or_compress_fq_file, sortBam, download_unpack_taxonomy, validate_sample_sheet, createAbundanceTables, getAlignmentStats, checkBamHeaders, prepare_databases:download_reference_ref2taxid, mergeBams, output_kraken2_read_assignments, makeReport, minimap, getVersions, extractMinimap2Reads, configure_igv, validateIndex, minimap_pipeline:createAbundanceTables, check_reference_ref2taxid, publishReads, getVersionsCommon, prepareSILVA, filter_references, bamstats, minimap_pipeline:getAlignmentStats, run_kraken2, prepare_databases:download_unpack_taxonomy, minimapTaxonomy, split_fq_file, minimap_pipeline:minimap, determine_bracken_length, fastcat, publish, unpack_download_kraken2_database, abricateVersion, download_reference_ref2taxid, minimap_pipeline:minimapTaxonomy, exclude_host_reads, samtools_index, getParams, catSortBams, run_bracken
+Nov-10 11:34:24.797 [main] DEBUG nextflow.Session - Igniting dataflow network (12)
+Nov-10 11:34:24.798 [main] DEBUG nextflow.processor.TaskProcessor - Starting process > fastcat
+Nov-10 11:34:24.798 [main] DEBUG nextflow.processor.TaskProcessor - Starting process > getVersions
+Nov-10 11:34:24.798 [main] DEBUG nextflow.processor.TaskProcessor - Starting process > getVersionsCommon
+Nov-10 11:34:24.798 [main] DEBUG nextflow.processor.TaskProcessor - Starting process > getParams
+Nov-10 11:34:24.798 [main] DEBUG nextflow.processor.TaskProcessor - Starting process > prepare_databases:download_unpack_taxonomy
+Nov-10 11:34:24.798 [main] DEBUG nextflow.processor.TaskProcessor - Starting process > prepare_databases:download_reference_ref2taxid
+Nov-10 11:34:24.798 [main] DEBUG nextflow.processor.TaskProcessor - Starting process > minimap_pipeline:minimap
+Nov-10 11:34:24.798 [main] DEBUG nextflow.processor.TaskProcessor - Starting process > minimap_pipeline:minimapTaxonomy
+Nov-10 11:34:24.798 [main] DEBUG nextflow.processor.TaskProcessor - Starting process > minimap_pipeline:getAlignmentStats
+Nov-10 11:34:24.798 [main] DEBUG nextflow.processor.TaskProcessor - Starting process > minimap_pipeline:createAbundanceTables
+Nov-10 11:34:24.798 [main] DEBUG nextflow.processor.TaskProcessor - Starting process > makeReport
+Nov-10 11:34:24.799 [main] DEBUG nextflow.script.ScriptRunner - Parsed script files:
+  Script_62cea93dff5065ae: /mnt/nrdstor/richlab/shared/datasets/16s/tmp/.nxf/assets/epi2me-labs/wf-16s/wf-metagenomics/subworkflows/common_pipeline.nf
+  Script_dbcff0141f4252e9: /mnt/nrdstor/richlab/shared/datasets/16s/tmp/.nxf/assets/epi2me-labs/wf-16s/wf-metagenomics/subworkflows/kraken_pipeline.nf
+  Script_65b7310de7b5ae03: /mnt/nrdstor/richlab/shared/datasets/16s/tmp/.nxf/assets/epi2me-labs/wf-16s/wf-metagenomics/modules/local/common.nf
+  Script_4475d6de3b92c83d: /mnt/nrdstor/richlab/shared/datasets/16s/tmp/.nxf/assets/epi2me-labs/wf-16s/wf-metagenomics/subworkflows/minimap_pipeline.nf
+  Script_41659012d239be06: /mnt/nrdstor/richlab/shared/datasets/16s/tmp/.nxf/assets/epi2me-labs/wf-16s/wf-metagenomics/modules/local/igv_related.nf
+  Script_0d574bf69965aed2: /mnt/nrdstor/richlab/shared/datasets/16s/tmp/.nxf/assets/epi2me-labs/wf-16s/lib/ingress.nf
+  Script_46c55cc7c07e611a: /mnt/nrdstor/richlab/shared/datasets/16s/tmp/.nxf/assets/epi2me-labs/wf-16s/wf-metagenomics/modules/local/databases.nf
+  Script_8353dbb4e28e254b: /mnt/nrdstor/richlab/shared/datasets/16s/tmp/.nxf/assets/epi2me-labs/wf-16s/main.nf
+  Script_e7f0d09ef0a539db: /mnt/nrdstor/richlab/shared/datasets/16s/tmp/.nxf/assets/epi2me-labs/wf-16s/lib/common.nf
+Nov-10 11:34:24.799 [main] DEBUG nextflow.script.ScriptRunner - > Awaiting termination 
+Nov-10 11:34:24.799 [main] DEBUG nextflow.Session - Session await
+Nov-10 11:34:24.845 [Actor Thread 7] INFO  nextflow.processor.TaskProcessor - [skipping] Stored process > prepare_databases:download_unpack_taxonomy
+Nov-10 11:34:24.845 [Actor Thread 9] INFO  nextflow.processor.TaskProcessor - [skipping] Stored process > prepare_databases:download_reference_ref2taxid
+Nov-10 11:34:24.847 [Actor Thread 10] DEBUG nextflow.container.SingularityCache - Singularity found local store for image=docker://ontresearch/wf-metagenomics:sha1d71a4d15f57a1c32aacdb94cacdeb268205548e; path=/mnt/nrdstor/richlab/aliciarich/.apptainer/cache/ontresearch-wf-metagenomics-sha1d71a4d15f57a1c32aacdb94cacdeb268205548e.img
+Nov-10 11:34:24.847 [Actor Thread 4] DEBUG nextflow.container.SingularityCache - Singularity found local store for image=docker://ontresearch/wf-common:sha72f3517dd994984e0e2da0b97cb3f23f8540be4b; path=/mnt/nrdstor/richlab/aliciarich/.apptainer/cache/ontresearch-wf-common-sha72f3517dd994984e0e2da0b97cb3f23f8540be4b.img
+Nov-10 11:34:24.958 [Actor Thread 14] INFO  nextflow.processor.TaskProcessor - [9d/a52933] Cached process > getVersions
+Nov-10 11:34:24.980 [Task submitter] DEBUG n.executor.local.LocalTaskHandler - Launch cmd line: /bin/bash -ue .command.run
+Nov-10 11:34:24.982 [Task submitter] INFO  nextflow.Session - [46/41ce40] Submitted process > fastcat (1)
+Nov-10 11:34:24.998 [Actor Thread 5] INFO  nextflow.processor.TaskProcessor - [d1/0039dd] Cached process > getVersionsCommon
+Nov-10 11:34:24.999 [Task submitter] DEBUG n.executor.local.LocalTaskHandler - Launch cmd line: /bin/bash -ue .command.run
+Nov-10 11:34:25.000 [Task submitter] INFO  nextflow.Session - [1c/004dac] Submitted process > getParams
+Nov-10 11:34:25.009 [Actor Thread 5] DEBUG nextflow.util.ThreadPoolBuilder - Creating thread pool 'PublishDir' minSize=10; maxSize=48; workQueue=LinkedBlockingQueue[-1]; allowCoreThreadTimeout=false
+Nov-10 11:34:26.480 [Task monitor] DEBUG n.processor.TaskPollingMonitor - Task completed > TaskHandler[id: 3; name: getParams; status: COMPLETED; exit: 0; error: -; workDir: /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_work/1c/004dace1b0580ddf842332ea4c382f]
+Nov-10 11:34:26.482 [Task monitor] DEBUG nextflow.util.ThreadPoolBuilder - Creating thread pool 'TaskFinalizer' minSize=10; maxSize=48; workQueue=LinkedBlockingQueue[-1]; allowCoreThreadTimeout=false
+Nov-10 11:36:58.332 [Task monitor] DEBUG n.processor.TaskPollingMonitor - Task completed > TaskHandler[id: 5; name: fastcat (1); status: COMPLETED; exit: 0; error: -; workDir: /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_work/46/41ce40bcb573d91d434a817c88ff80]
+Nov-10 11:36:58.598 [Task submitter] DEBUG n.executor.local.LocalTaskHandler - Launch cmd line: /bin/bash -ue .command.run
+Nov-10 11:36:58.598 [Task submitter] INFO  nextflow.Session - [7c/c08168] Submitted process > minimap_pipeline:minimap (wf16s_in)
+Nov-10 11:39:24.716 [Task monitor] DEBUG n.processor.TaskPollingMonitor - !! executor local > tasks to be completed: 1 -- submitted tasks are shown below
+~> TaskHandler[id: 7; name: minimap_pipeline:minimap (wf16s_in); status: RUNNING; exit: -; error: -; workDir: /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_work/7c/c0816856fe209674f929c86aa78c5c]
+Nov-10 11:44:24.798 [Task monitor] DEBUG n.processor.TaskPollingMonitor - !! executor local > tasks to be completed: 1 -- submitted tasks are shown below
+~> TaskHandler[id: 7; name: minimap_pipeline:minimap (wf16s_in); status: RUNNING; exit: -; error: -; workDir: /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_work/7c/c0816856fe209674f929c86aa78c5c]
+Nov-10 11:49:24.854 [Task monitor] DEBUG n.processor.TaskPollingMonitor - !! executor local > tasks to be completed: 1 -- submitted tasks are shown below
+~> TaskHandler[id: 7; name: minimap_pipeline:minimap (wf16s_in); status: RUNNING; exit: -; error: -; workDir: /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_work/7c/c0816856fe209674f929c86aa78c5c]
+Nov-10 11:54:24.888 [Task monitor] DEBUG n.processor.TaskPollingMonitor - !! executor local > tasks to be completed: 1 -- submitted tasks are shown below
+~> TaskHandler[id: 7; name: minimap_pipeline:minimap (wf16s_in); status: RUNNING; exit: -; error: -; workDir: /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_work/7c/c0816856fe209674f929c86aa78c5c]
+Nov-10 11:59:24.906 [Task monitor] DEBUG n.processor.TaskPollingMonitor - !! executor local > tasks to be completed: 1 -- submitted tasks are shown below
+~> TaskHandler[id: 7; name: minimap_pipeline:minimap (wf16s_in); status: RUNNING; exit: -; error: -; workDir: /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_work/7c/c0816856fe209674f929c86aa78c5c]
+Nov-10 12:04:24.912 [Task monitor] DEBUG n.processor.TaskPollingMonitor - !! executor local > tasks to be completed: 1 -- submitted tasks are shown below
+~> TaskHandler[id: 7; name: minimap_pipeline:minimap (wf16s_in); status: RUNNING; exit: -; error: -; workDir: /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_work/7c/c0816856fe209674f929c86aa78c5c]
+Nov-10 12:09:24.987 [Task monitor] DEBUG n.processor.TaskPollingMonitor - !! executor local > tasks to be completed: 1 -- submitted tasks are shown below
+~> TaskHandler[id: 7; name: minimap_pipeline:minimap (wf16s_in); status: RUNNING; exit: -; error: -; workDir: /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_work/7c/c0816856fe209674f929c86aa78c5c]
+Nov-10 12:14:25.085 [Task monitor] DEBUG n.processor.TaskPollingMonitor - !! executor local > tasks to be completed: 1 -- submitted tasks are shown below
+~> TaskHandler[id: 7; name: minimap_pipeline:minimap (wf16s_in); status: RUNNING; exit: -; error: -; workDir: /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_work/7c/c0816856fe209674f929c86aa78c5c]
+Nov-10 12:19:25.153 [Task monitor] DEBUG n.processor.TaskPollingMonitor - !! executor local > tasks to be completed: 1 -- submitted tasks are shown below
+~> TaskHandler[id: 7; name: minimap_pipeline:minimap (wf16s_in); status: RUNNING; exit: -; error: -; workDir: /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_work/7c/c0816856fe209674f929c86aa78c5c]
+Nov-10 12:24:25.204 [Task monitor] DEBUG n.processor.TaskPollingMonitor - !! executor local > tasks to be completed: 1 -- submitted tasks are shown below
+~> TaskHandler[id: 7; name: minimap_pipeline:minimap (wf16s_in); status: RUNNING; exit: -; error: -; workDir: /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_work/7c/c0816856fe209674f929c86aa78c5c]
+Nov-10 12:29:25.259 [Task monitor] DEBUG n.processor.TaskPollingMonitor - !! executor local > tasks to be completed: 1 -- submitted tasks are shown below
+~> TaskHandler[id: 7; name: minimap_pipeline:minimap (wf16s_in); status: RUNNING; exit: -; error: -; workDir: /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_work/7c/c0816856fe209674f929c86aa78c5c]
+Nov-10 12:34:25.349 [Task monitor] DEBUG n.processor.TaskPollingMonitor - !! executor local > tasks to be completed: 1 -- submitted tasks are shown below
+~> TaskHandler[id: 7; name: minimap_pipeline:minimap (wf16s_in); status: RUNNING; exit: -; error: -; workDir: /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_work/7c/c0816856fe209674f929c86aa78c5c]
+Nov-10 12:39:25.425 [Task monitor] DEBUG n.processor.TaskPollingMonitor - !! executor local > tasks to be completed: 1 -- submitted tasks are shown below
+~> TaskHandler[id: 7; name: minimap_pipeline:minimap (wf16s_in); status: RUNNING; exit: -; error: -; workDir: /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_work/7c/c0816856fe209674f929c86aa78c5c]
+Nov-10 12:44:25.520 [Task monitor] DEBUG n.processor.TaskPollingMonitor - !! executor local > tasks to be completed: 1 -- submitted tasks are shown below
+~> TaskHandler[id: 7; name: minimap_pipeline:minimap (wf16s_in); status: RUNNING; exit: -; error: -; workDir: /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_work/7c/c0816856fe209674f929c86aa78c5c]
+Nov-10 12:49:25.612 [Task monitor] DEBUG n.processor.TaskPollingMonitor - !! executor local > tasks to be completed: 1 -- submitted tasks are shown below
+~> TaskHandler[id: 7; name: minimap_pipeline:minimap (wf16s_in); status: RUNNING; exit: -; error: -; workDir: /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_work/7c/c0816856fe209674f929c86aa78c5c]
+Nov-10 12:54:25.633 [Task monitor] DEBUG n.processor.TaskPollingMonitor - !! executor local > tasks to be completed: 1 -- submitted tasks are shown below
+~> TaskHandler[id: 7; name: minimap_pipeline:minimap (wf16s_in); status: RUNNING; exit: -; error: -; workDir: /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_work/7c/c0816856fe209674f929c86aa78c5c]
+Nov-10 12:59:25.685 [Task monitor] DEBUG n.processor.TaskPollingMonitor - !! executor local > tasks to be completed: 1 -- submitted tasks are shown below
+~> TaskHandler[id: 7; name: minimap_pipeline:minimap (wf16s_in); status: RUNNING; exit: -; error: -; workDir: /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_work/7c/c0816856fe209674f929c86aa78c5c]
+Nov-10 13:04:25.742 [Task monitor] DEBUG n.processor.TaskPollingMonitor - !! executor local > tasks to be completed: 1 -- submitted tasks are shown below
+~> TaskHandler[id: 7; name: minimap_pipeline:minimap (wf16s_in); status: RUNNING; exit: -; error: -; workDir: /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_work/7c/c0816856fe209674f929c86aa78c5c]
+Nov-10 13:09:25.801 [Task monitor] DEBUG n.processor.TaskPollingMonitor - !! executor local > tasks to be completed: 1 -- submitted tasks are shown below
+~> TaskHandler[id: 7; name: minimap_pipeline:minimap (wf16s_in); status: RUNNING; exit: -; error: -; workDir: /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_work/7c/c0816856fe209674f929c86aa78c5c]
