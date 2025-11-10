@@ -108,6 +108,15 @@ CONTAINERS = {
     "dorado":    _expand(config.get("container_dorado",    "$PROJ_ROOT/containers/dorado.sif")),
 }
 
+# --- Nextflow wf-16s integration (optional) ---
+
+WF16S_ENABLE = bool(config.get("wf16s", {}).get("enable", False))
+WF16S_OUTDIR = config.get("wf16s", {}).get("out_dir") or os.path.join(OUT, "wf16s")
+WF16S_WORK   = config.get("wf16s", {}).get("work_dir") or os.path.join(TMP, "wf16s_work")
+
+CONTAINERS["nextflow"] = _expand(config.get("container_nextflow", "")) or CONTAINERS["cpu"]
+
+
 # ---- wildcardable string templates (no callables) ----
 BASECALL_DIR_T   = resolve_path(OUT_ROOT, LAYOUT["basecall_dir"],
                                 sampleset=SAMPLESET, dataset=DATASET, run="{run}")
@@ -210,8 +219,12 @@ _final_targets = (
         os.path.join(OUT, "otu/otus_centroids_99.fasta"),
         os.path.join(OUT, "otu/otus_centroids_97.fasta"),
         os.path.join(OUT, "itgdb/species/itgdb_species_merged.tsv"),  
+        os.path.join(TMP, "wf16s_in", ".staged.ok"),
       ]
 )
+
+if WF16S_ENABLE:
+    _final_targets = tuple(_final_targets) + (os.path.join(WF16S_OUTDIR, ".wf16s.done"),)
 
 rule all:
     input: _final_targets
@@ -258,7 +271,7 @@ rule dorado_basecall:
     resources:
         mem_mb         = Rq("dorado_basecall", "mem_mb"),
         runtime        = Rq("dorado_basecall", "runtime"),
-        slurm_partition= Rq("dorado_basecall", "slurm_partition"),
+        slurm_partition = Rq("dorado_basecall", "slurm_partition"),
         slurm_account  = Rq("dorado_basecall", "slurm_account"),
         slurm_extra    = R("dorado_basecall", "slurm_extra", "")       
     params:
@@ -299,7 +312,7 @@ rule dorado_demux:
     resources:
         mem_mb         = Rq("dorado_demux", "mem_mb"),
         runtime        = Rq("dorado_demux", "runtime"),
-        slurm_partition= Rq("dorado_demux", "slurm_partition"),
+        slurm_partition = Rq("dorado_demux", "slurm_partition"),
         slurm_account  = Rq("dorado_demux", "slurm_account"),
         slurm_extra    =  R("dorado_demux", "slurm_extra", "")          
     params:
@@ -417,7 +430,7 @@ rule dorado_trim_sample:
     resources:
         mem_mb         = Rq("dorado_trim", "mem_mb"),
         runtime        = Rq("dorado_trim", "runtime"),
-        slurm_partition= Rq("dorado_trim", "slurm_partition"),
+        slurm_partition = Rq("dorado_trim", "slurm_partition"),
         slurm_account  = Rq("dorado_trim", "slurm_account"),
         slurm_extra    = R("dorado_trim", "slurm_extra", "")
     params:
@@ -496,7 +509,7 @@ rule fastcat_filter:
     resources:
         mem_mb   = Rq("fastcat_filter", "mem_mb"),
         runtime  = Rq("fastcat_filter", "runtime"),
-        partition= Rq("fastcat_filter", "partition"),
+        partition = Rq("fastcat_filter", "partition"),
         account  = Rq("fastcat_filter", "account"),
         extra    = R("fastcat_filter", "extra")
     params:
@@ -564,7 +577,7 @@ rule nanoplot_qc:
     resources:
         mem_mb   = Rq("nanoplot_qc", "mem_mb"),
         runtime  = Rq("nanoplot_qc", "runtime"),
-        partition= Rq("nanoplot_qc", "partition"),
+        partition = Rq("nanoplot_qc", "partition"),
         account  = Rq("nanoplot_qc", "account"),
         extra    = R("nanoplot_qc", "extra")
     params:
@@ -588,13 +601,12 @@ rule stage_wf16s_input:
         filt_dir  = rules.fastcat_filter.output.fastq
     output:
         indir    = directory(os.path.join(TMP, "wf16s_in")),
-        manifest = os.path.join(TMP, "wf16s_in", "manifest.tsv"),
         done     = touch(os.path.join(TMP, "wf16s_in", ".staged.ok"))
     threads: Rq("stage_wf16s_input", "threads")
     resources:
         mem_mb   = Rq("stage_wf16s_input", "mem_mb"), 
         runtime  = Rq("stage_wf16s_input", "runtime"),
-        partition= Rq("stage_wf16s_input", "partition"),
+        partition = Rq("stage_wf16s_input", "partition"),
         account  = Rq("stage_wf16s_input", "account"),
         extra    =  R("stage_wf16s_input", "extra") 
     container: CONTAINERS["cpu"]
@@ -602,12 +614,31 @@ rule stage_wf16s_input:
       set -euo pipefail
       in_dir="{input.filt_dir}"
       out_dir="{output.indir}"
-      man="{output.manifest}"
-
       mkdir -p "$out_dir"
-      printf "sample_id\tpath\n" > "$man"
-
+      
       shopt -s nullglob
+      n=0
+      for fq in "$in_dir"/*.fastq "$in_dir"/*.fastq.gz; do
+        [[ -s "$fq" ]] || continue
+        base="$(basename "$fq")"
+        stem="$(printf "%s" "$base" | sed -E 's/\.fastq(\.gz)?$//')"
+
+        if [[ "$stem" == *"__"* ]]; then
+          sid="${stem#*__}"
+        else
+          sid="$stem"
+        fi
+
+        sdir="$out_dir/$sid"
+        mkdir -p "$sdir"
+
+        ln -sf "$fq" "$sdir/$base"
+        n=$((n+1))
+      done
+
+      echo "[stage_wf16s_input] created $(find "$out_dir" -mindepth 1 -maxdepth 1 -type d | wc -l) sample dirs" >&2
+      find "$out_dir" -mindepth 1 -maxdepth 1 -type d | head -n 5 >&2
+
       for fq in "$in_dir"/*.fastq "$in_dir"/*.fastq.gz; do
         base="$(basename "$fq")"
         sid="$(printf "%s" "$base" | sed -E 's/\.fastq(\.gz)?$//')"
@@ -615,6 +646,76 @@ rule stage_wf16s_input:
         ln -sf "$fq" "$out_dir/$base"
         printf "%s\t%s\n" "$sid" "$out_dir/$base" >> "$man"
       done
+    """
+    
+rule wf16s_run:
+    input:
+        staged = rules.stage_wf16s_input.output.done,
+        indir  = rules.stage_wf16s_input.output.indir,
+    output:
+        done   = touch(os.path.join(WF16S_OUTDIR, ".wf16s.done"))
+    threads:  Rq("wf16s_run", "threads")
+    resources:
+        mem_mb   = Rq("wf16s_run", "mem_mb"),
+        runtime  = Rq("wf16s_run", "runtime"),
+        partition = Rq("wf16s_run", "partition"),
+        account  = Rq("wf16s_run", "account"),
+        extra    = R("wf16s_run", "extra"),
+    params:
+        min_q   = lambda wc: config["min_qscore"],
+        minlen  = lambda wc: config["minlength"],
+        maxlen  = lambda wc: config["maxlength"],
+        repo    = lambda wc: config["wf16s"].get("repo","epi2me-labs/wf-16s"),
+        profile = lambda wc: config["wf16s"].get("profile","auto"),
+        rev     = lambda wc: config["wf16s"].get("rev", ""),    
+        extra   = lambda wc: config["wf16s"].get("extra_args",""),
+        outdir   = WF16S_OUTDIR,
+        workdir  = WF16S_WORK,
+    shell: r"""
+      set -euo pipefail
+      mkdir -p "{params.outdir}" "{params.workdir}"
+      
+      if ! command -v nextflow >/dev/null 2>&1; then
+        module load nextflow >/dev/null 2>&1 || true
+      fi
+
+      nf_profile="{params.profile}"
+      if [ "$nf_profile" = "auto" ]; then
+        if command -v apptainer >/dev/null 2>&1; then
+          nf_profile="apptainer"
+        elif command -v singularity >/dev/null 2>&1; then
+          nf_profile="singularity"
+        elif command -v docker >/dev/null 2>&1; then
+          nf_profile="docker"
+        else
+          nf_profile="conda"
+        fi
+      fi
+
+      nf_cmd=( nextflow run "{params.repo}"
+               --fastq "{input.indir}"
+               --min_len "{params.minlen}"
+               --min_read_qual "{params.min_q}"
+               --max_len "{params.maxlen}"
+               --threads "{threads}"
+               -profile "$nf_profile"
+               --out_dir "{params.outdir}"
+               {params.extra}
+               -work-dir "{params.workdir}"
+               -resume )
+
+      if [ -n "{params.rev}" ]; then
+        nf_cmd+=( -r "{params.rev}" )
+      fi
+
+      echo "=== wf-16s ===" >&2
+      printf "%q " "${{nf_cmd[@]}}" >&2; echo >&2
+
+      "${{nf_cmd[@]}}"
+
+      : > "{output.done}"
+
+      
     """
     
 # ---------------- OTU branch ----------------
@@ -625,9 +726,9 @@ rule itgdb_index:
     resources:
         mem_mb   = Rq("itgdb_index", "mem_mb"), 
         runtime  = Rq("itgdb_index", "runtime"),
-        partition= Rq("itgdb_index", "partition"),
+        partition = Rq("itgdb_index", "partition"),
         account  = Rq("itgdb_index", "account"),
-        extra    =  R("itgdb_index", "extra") 
+        extra    =  R("itgdb_index", "extra"),
     params:
         container_rev = lambda wc: config["container_rev"].get("nanoalign","0")
     container: CONTAINERS["nanoalign"]
@@ -645,22 +746,20 @@ rule itgdb_taxmap:
     resources:
         mem_mb   = Rq("itgdb_taxmap", "mem_mb"), 
         runtime  = Rq("itgdb_taxmap", "runtime"),
-        partition= Rq("itgdb_taxmap", "partition"),
+        partition = Rq("itgdb_taxmap", "partition"),
         account  = Rq("itgdb_taxmap", "account"),
-        extra    =  R("itgdb_taxmap", "extra") 
+        extra    =  R("itgdb_taxmap", "extra"),
     params:
         container_rev = lambda wc: config["container_rev"].get("cpu","0")
     container: CONTAINERS["cpu"]         
     shell: r"""
       set -euo pipefail
       mkdir -p "$(dirname "{output.taxmap}")"
-      
       awk -F'\t' '
-        NR==1 && tolower($1)=="id" {{ print; next }}
         BEGIN{{ OFS="\t"; print "id","taxonomy" }}
-        NR==1 && ($1=="id" || $1 ~ /^#/) {{ next }}   
-        $1 ~ /^#/                  {{ next }}         
-        NF >= 2                    {{ print $1, $2 }} 
+        NR==1 && ($1=="id" || $1 ~ /^#/) {{ next }}
+        $1 ~ /^#/      {{ next }}
+        NF >= 2        {{ print $1, $2 }}
       ' "{input.tax}" > "{output.taxmap}"
       """
     
@@ -675,7 +774,8 @@ rule itgdb_map_reads:
         mem_mb    = Rq("itgdb_map_reads", "mem_mb"),
         runtime   = Rq("itgdb_map_reads", "runtime"),
         partition = Rq("itgdb_map_reads", "partition"),
-        account   = Rq("itgdb_map_reads", "account")
+        account   = Rq("itgdb_map_reads", "account"),
+        extra     =  R("itgdb_map_reads", "extra"),
     container: CONTAINERS["nanoalign"]
     params:
         preset  = config.get("itgdb_minimap", {}).get("preset", "map-ont"),
@@ -722,14 +822,14 @@ rule itgdb_species_tables:
     resources:
         mem_mb   = Rq("itgdb_species_tables", "mem_mb"),
         runtime  = Rq("itgdb_species_tables", "runtime"),
-        partition= Rq("itgdb_species_tables", "partition"),
+        partition = Rq("itgdb_species_tables", "partition"),
         account  = Rq("itgdb_species_tables", "account"),
-        extra    = R("itgdb_species_tables", "extra")
-    params:
-        mapq_min   = config["itgdb_minimap"]["mapq_min"],
-        aln_min_bp = config["itgdb_minimap"]["aln_min_bp"],
-        container_rev = lambda wc: config["container_rev"].get("cpu","0")
+        extra  = R("itgdb_species_tables", "extra"),
     container: CONTAINERS["cpu"]
+    params:
+        mapq_min   = int(config["itgdb_minimap"].get("mapq_min", 10)),
+        aln_min_bp = int(config["itgdb_minimap"].get("aln_min_bp", 1000)),
+        container_rev = lambda wc: config["container_rev"].get("cpu","0")
     shell: r"""
       set -euo pipefail
       mkdir -p "$(dirname "{output.merged}")"
@@ -741,52 +841,96 @@ rule itgdb_species_tables:
 import os, glob, csv, sys, re
 from collections import Counter
 
-paf_dir     = os.path.dirname(r"{input.paf_done}")
-taxmap_fn   = r"{input.taxmap}"
-out_merged  = r"{output.merged}"
-species_dir = os.path.dirname(out_merged)
+paf_dir       = os.path.dirname(r"{input.paf_done}")
+taxmap_fn     = r"{input.taxmap}"
+species_merge = r"{output.merged}"
+
+species_dir = os.path.dirname(species_merge)
+genus_dir   = os.path.join(os.path.dirname(species_dir), "genus")
+os.makedirs(species_dir, exist_ok=True)
+os.makedirs(genus_dir,   exist_ok=True)
 
 mapq_min   = int("{params.mapq_min}")
 aln_min_bp = int("{params.aln_min_bp}")
 
 id2tax = dict()
 with open(taxmap_fn, "r", encoding="utf-8", errors="ignore") as fh:
-    next(fh, None)
+    header_seen = False
     for line in fh:
-        sid, tax = line.rstrip("\n").split("\t", 1)
+        line = line.rstrip("\n")
+        if not line:
+            continue
+        cols = line.split("\t")
+        if not header_seen:
+            header_seen = True
+            if cols[0].lower() in ("id", "#id", "#"):
+                continue
+        if len(cols) < 2:
+            continue
+        sid = cols[0]
+        tax = cols[1]
         id2tax[sid] = tax
 
-def species_from_tax(tax: str) -> str:
+def _norm_target_key(tname):
+    if tname in id2tax:
+        return tname
+    base = re.split(r"[|\s]", tname)[0]
+    return base
+
+def species_from_tax(tax):
     if not tax or tax == "NA":
         return "Unassigned"
-    if ";" in tax:
-        parts = [p.strip() for p in tax.split(";") if p.strip()]
-        if parts:
-            sp = re.sub(r'[_"\'\[\]]', " ", parts[-1]).strip()
-            return sp or "Unassigned"
-    m = re.search(r"s__([^;]+)", tax)
+    m = re.search(r"s__([^;|,\s]+)", tax)
     if m:
         return m.group(1).replace("_", " ").strip()
-    m = re.search(r"g__([^;]+)", tax)
+    m = re.search(r"g__([^;|,\s]+)", tax)
     if m:
         return m.group(1).replace("_", " ").strip() + " sp."
-    toks = tax.split()
-    if len(toks) >= 2:
-        return (toks[-2] + " " + toks[-1]).replace("_"," ").strip()
+    parts = [p.strip() for p in re.split(r"[;|,]", tax) if p.strip()]
+    if parts:
+        guess = re.sub(r'^.*__', '', parts[-1]).replace("_", " ").strip()
+        toks = guess.split()
+        if len(toks) >= 2:
+            return toks[-2] + " " + toks[-1]
+        return guess or "Unassigned"
+    return "Unassigned"
+
+def genus_from_tax(tax):
+    if not tax or tax == "NA":
+        return "Unassigned"
+    m = re.search(r"g__([^;|,\s]+)", tax)
+    if m:
+        return m.group(1).replace("_", " ").strip()
+    parts = [p.strip() for p in re.split(r"[;|,]", tax) if p.strip()]
+    for i, p in enumerate(parts):
+        if p.startswith("s__") and i > 0:
+            return re.sub(r'^.*__', '', parts[i-1]).replace("_", " ").strip()
+    if parts:
+        guess = re.sub(r'^.*__', '', parts[-1]).replace("_", " ").strip()
+        toks = guess.split()
+        if len(toks) >= 2:
+            return toks[0]
+        return guess or "Unassigned"
     return "Unassigned"
 
 pafs = sorted(glob.glob(os.path.join(paf_dir, "*.paf")))
 if not pafs:
-    os.makedirs(species_dir, exist_ok=True)
-    with open(out_merged, "w", newline="", encoding="utf-8") as fh:
-        w = csv.writer(fh, delimiter="\t")
-        w.writerow(["Species"])
+    with open(species_merge, "w", newline="", encoding="utf-8") as fh:
+        csv.writer(fh, delimiter="\t").writerow(["Species"])
+    with open(os.path.join(genus_dir, "itgdb_genus_merged.tsv"), "w", newline="", encoding="utf-8") as fh:
+        csv.writer(fh, delimiter="\t").writerow(["Genus"])
     sys.exit(0)
-    
-sample2counts = dict()
+
+species_counts = dict()
+genus_counts   = dict()
+samples_seen   = []
+
 for paf in pafs:
     sid = os.path.basename(paf)[:-4]
-    cnt = Counter()
+    samples_seen.append(sid)
+    scnt = Counter()
+    gcnt = Counter()
+
     with open(paf, "r", encoding="utf-8", errors="ignore") as fh:
         for line in fh:
             if not line or line.startswith("#"):
@@ -802,25 +946,50 @@ for paf in pafs:
                 continue
             if mapq < mapq_min or aln < aln_min_bp:
                 continue
-            sp = species_from_tax(id2tax.get(tname, "NA"))
-            cnt[sp] += 1
-    out_tsv = os.path.join(species_dir, "itgdb_species_" + sid + ".tsv")
-    with open(out_tsv, "w", newline="", encoding="utf-8") as fh:
+
+            key = _norm_target_key(tname)
+            tax = id2tax.get(key, "NA")
+
+            sp = species_from_tax(tax)
+            ge = genus_from_tax(tax)
+
+            scnt[sp] += 1
+            gcnt[ge] += 1
+
+    sp_path = os.path.join(species_dir, "itgdb_species_" + sid + ".tsv")
+    ge_path = os.path.join(genus_dir,   "itgdb_genus_"   + sid + ".tsv")
+
+    with open(sp_path, "w", newline="", encoding="utf-8") as fh:
         w = csv.writer(fh, delimiter="\t")
         w.writerow(["Species", sid])
-        for sp, c in cnt.most_common():
+        for sp, c in scnt.most_common():
             w.writerow([sp, c])
-    sample2counts[sid] = cnt
 
-all_species = sorted(set().union(*(set(c) for c in sample2counts.values()))) if sample2counts else []
-samples = sorted(sample2counts.keys())
+    with open(ge_path, "w", newline="", encoding="utf-8") as fh:
+        w = csv.writer(fh, delimiter="\t")
+        w.writerow(["Genus", sid])
+        for ge, c in gcnt.most_common():
+            w.writerow([ge, c])
 
-with open(out_merged, "w", newline="", encoding="utf-8") as fh:
+    species_counts[sid] = scnt
+    genus_counts[sid]   = gcnt
+
+samples = sorted(samples_seen)
+
+all_species = sorted(set().union(*(set(sc.keys()) for sc in species_counts.values()))) if species_counts else []
+with open(species_merge, "w", newline="", encoding="utf-8") as fh:
     w = csv.writer(fh, delimiter="\t")
     w.writerow(["Species"] + samples)
     for sp in all_species:
-        row = [sample2counts[s][sp] if sp in sample2counts[s] else 0 for s in samples]
-        w.writerow([sp] + row)
+        w.writerow([sp] + [species_counts[s].get(sp, 0) for s in samples])
+
+genus_merge = os.path.join(genus_dir, "itgdb_genus_merged.tsv")
+all_genera  = sorted(set().union(*(set(gc.keys()) for gc in genus_counts.values()))) if genus_counts else []
+with open(genus_merge, "w", newline="", encoding="utf-8") as fh:
+    w = csv.writer(fh, delimiter="\t")
+    w.writerow(["Genus"] + samples)
+    for ge in all_genera:
+        w.writerow([ge] + [genus_counts[s].get(ge, 0) for s in samples])
 PY
     """
     
@@ -831,9 +1000,9 @@ rule isonclust3:
     resources:
         mem_mb   = Rq("isonclust3", "mem_mb"), 
         runtime  = Rq("isonclust3", "runtime"),
-        partition= Rq("isonclust3", "partition"),
+        partition = Rq("isonclust3", "partition"),
         account  = Rq("isonclust3", "account"),
-        extra    =  R("isonclust3", "extra") 
+        extra    =  R("isonclust3", "extra"),
     log: os.path.join(OUT, "logs/isonclust3.log")
     params:
         container_rev = lambda wc: config["container_rev"].get("cpu","0")
@@ -858,7 +1027,7 @@ rule spoa_consensus:
     resources:
         mem_mb   = Rq("spoa_consensus", "mem_mb"), 
         runtime  = Rq("spoa_consensus", "runtime"),
-        partition= Rq("spoa_consensus", "partition"),
+        partition = Rq("spoa_consensus", "partition"),
         account  = Rq("spoa_consensus", "account"),
         extra    =  R("spoa_consensus", "extra") 
     params:
@@ -925,7 +1094,7 @@ rule vsearch_pool_cluster:
     resources:
         mem_mb   = Rq("vsearch_pool_cluster", "mem_mb"), 
         runtime  = Rq("vsearch_pool_cluster", "runtime"),
-        partition= Rq("vsearch_pool_cluster", "partition"),
+        partition = Rq("vsearch_pool_cluster", "partition"),
         account  = Rq("vsearch_pool_cluster", "account"),
         extra    =  R("vsearch_pool_cluster", "extra") 
     params:
@@ -985,10 +1154,40 @@ rule vsearch_pool_cluster:
       done
     """
 
+rule uniqify_otu_centroids:
+    input:
+        cent99 = rules.vsearch_pool_cluster.output.cent99  ,
+        cent97 = rules.vsearch_pool_cluster.output.cent97  
+    output:
+        cent99_uniq = os.path.join(OUT, "otu/otus_centroids_99.uniq.fasta"),
+        cent97_uniq = os.path.join(OUT, "otu/otus_centroids_97.uniq.fasta")
+    threads: Rq("uniqify_otu_centroids", "threads")
+    resources:
+        mem_mb   = Rq("uniqify_otu_centroids", "mem_mb"), 
+        runtime  = Rq("uniqify_otu_centroids", "runtime"),
+        partition = Rq("uniqify_otu_centroids", "partition"),
+        account  = Rq("uniqify_otu_centroids", "account"),
+        extra    =  R("uniqify_otu_centroids", "extra") 
+    log: os.path.join(OUT, "logs/uniqify_otu_centroids.log")
+    container: CONTAINERS["cpu"]
+    shell: r"""
+        set -euo pipefail
+        mkdir -p "$(dirname {output.cent99_uniq})" "$(dirname {output.cent97_uniq})"
+
+        vsearch --fastx_filter {input.cent99} --relabel OTU_ --fasta_width 0 --fastaout {output.cent99_uniq}
+        vsearch --fastx_filter {input.cent97} --relabel OTU_ --fasta_width 0 --fastaout {output.cent97_uniq}
+
+        dup=$(grep '^>' {output.cent99_uniq} | sed 's/^>//' | sort | uniq -d | head -n1 || true)
+        if [ -n "${{dup:-}}" ]; then
+          echo "[uniqify_otu_centroids] Duplicate header in {output.cent99_uniq}: $dup" >&2
+          exit 1
+        fi
+    """
+
 rule map_all_reads:
     input:
         reads = rules.fastcat_filter.output.fastq,        
-        refs  = rules.vsearch_pool_cluster.output.cent99  
+        refs  = rules.uniqify_otu_centroids.output.cent99_uniq 
     output:
         all_reads = ALL_READS_FQ,   
         bam       = MAP_BAM_R0      
@@ -996,7 +1195,7 @@ rule map_all_reads:
     resources:
         mem_mb   = Rq("map_all_reads", "mem_mb"),
         runtime  = Rq("map_all_reads", "runtime"),
-        partition= Rq("map_all_reads", "partition"),
+        partition = Rq("map_all_reads", "partition"),
         account  = Rq("map_all_reads", "account"),
         extra    = R("map_all_reads", "extra")
     log: os.path.join(OUT, "logs/map_all_reads.log")
@@ -1035,14 +1234,14 @@ rule racon_round1:
     input: 
       reads = rules.map_all_reads.output.all_reads, 
       bam   = rules.map_all_reads.output.bam, 
-      refs  = rules.vsearch_pool_cluster.output.cent99  
+      refs  = rules.uniqify_otu_centroids.output.cent99_uniq 
     output: 
       r1 = R1_FASTA
     threads: Rq("racon_round1", "threads")
     resources:
         mem_mb   = Rq("racon_round1", "mem_mb"), 
         runtime  = Rq("racon_round1", "runtime"),
-        partition= Rq("racon_round1", "partition"),
+        partition = Rq("racon_round1", "partition"),
         account  = Rq("racon_round1", "account"),
         extra    =  R("racon_round1", "extra") 
     params:
@@ -1106,7 +1305,7 @@ rule map_r1:
     resources:
         mem_mb   = Rq("map_r1", "mem_mb"), 
         runtime  = Rq("map_r1", "runtime"),
-        partition= Rq("map_r1", "partition"),
+        partition = Rq("map_r1", "partition"),
         account  = Rq("map_r1", "account"),
         extra    = R("map_r1", "extra") 
     params:
@@ -1142,7 +1341,7 @@ rule racon_round2:
     resources:
         mem_mb   = Rq("racon_round2", "mem_mb"), 
         runtime  = Rq("racon_round2", "runtime"),
-        partition= Rq("racon_round2", "partition"),
+        partition = Rq("racon_round2", "partition"),
         account  = Rq("racon_round2", "account"),
         extra    =  R("racon_round2", "extra") 
     params:
@@ -1169,7 +1368,7 @@ rule medaka_polish:
     resources:
         mem_mb         = Rq("medaka_polish", "mem_mb"),
         runtime        = Rq("medaka_polish", "runtime"),
-        slurm_partition= Rq("medaka_polish", "slurm_partition"),
+        slurm_partition = Rq("medaka_polish", "slurm_partition"),
         slurm_account  = Rq("medaka_polish", "slurm_account"),
         slurm_extra    =  R("medaka_polish", "slurm_extra", "")    
     params:
@@ -1208,22 +1407,20 @@ rule chimera_taxonomy:
         nonchim = os.path.join(OUT, "otu/otus_clean.fasta"),
         chimera = os.path.join(OUT, "otu/otus_chimeras.fasta"),
         sintax  = os.path.join(OUT, "otu/otus_taxonomy.sintax")
-    threads: Rq("chimera_taxonomy", "threads")
     resources:
         mem_mb    = Rq("chimera_taxonomy", "mem_mb"),
         runtime   = Rq("chimera_taxonomy", "runtime"),
         partition = Rq("chimera_taxonomy", "partition"),
         account   = Rq("chimera_taxonomy", "account"),
-        extra     = R("chimera_taxonomy", "extra")
-    container: CONTAINERS["cpu"]
+        extra     = R("chimera_taxonomy", "extra"),
     params:
         ref_nonchim = os.path.join(OUT, "otu/otus_clean.refok.fasta"),
         ref_chimera = os.path.join(OUT, "otu/otus_chimeras.ref.fasta"),
         cutoff      = lambda wc: SINTAX_CUTOFF,
         container_rev = lambda wc: config["container_rev"].get("cpu","0"),
-        out_dir       = OUT
-    log:
-        os.path.join(OUT, "logs/chimera_taxonomy.log")
+        out_dir       = OUT,
+    threads: Rq("chimera_taxonomy", "threads")
+    container: CONTAINERS["cpu"]
     shell: r"""
       set -euo pipefail
       command -v vsearch >/dev/null || {{ echo "vsearch not found"; exit 127; }}
@@ -1237,7 +1434,6 @@ rule chimera_taxonomy:
         exit 0
       fi
 
-      # 1) De novo chimera detection
       vsearch --uchime_denovo "{input.fasta}" \
               --nonchimeras "{output.nonchim}" \
               --chimeras    "{output.chimera}" \
@@ -1250,7 +1446,6 @@ rule chimera_taxonomy:
         exit 0
       fi
 
-      # 2) Reference-based chimera detection against ITGDB
       vsearch --uchime_ref "{output.nonchim}" \
               --db "{input.db}" \
               --nonchimeras "{params.ref_nonchim}" \
@@ -1264,7 +1459,6 @@ rule chimera_taxonomy:
         exit 0
       fi
 
-      # 3) SINTAX taxonomy with configured cutoff
       vsearch --sintax "{output.nonchim}" \
               --db "{input.db}" \
               --sintax_cutoff {params.cutoff} \
@@ -1287,7 +1481,7 @@ rule collapse_ultraclose:
         runtime   = Rq("collapse_ultraclose", "runtime"),
         partition = Rq("collapse_ultraclose", "partition"),
         account   = Rq("collapse_ultraclose", "account"),
-        extra     = R("collapse_ultraclose", "extra")
+        extra     = R("collapse_ultraclose", "extra"),
     threads: Rq("collapse_ultraclose", "threads")
     container: CONTAINERS["cpu"]
     shell: r"""

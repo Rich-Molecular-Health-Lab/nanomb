@@ -48,10 +48,12 @@ container_rev:
   gpu: 2025-10-03b
   nanoalign: 2025-10-05
   dorado: 2025-10-05
+  nextflow: 2025-11-08
 container_cpu:       "$PROJ_ROOT/containers/nanomb.sif"
 container_gpu:       "$PROJ_ROOT/containers/nanombgpu.sif"
 container_nanoalign: "$PROJ_ROOT/containers/nanoalign.sif"
 container_dorado:    "$PROJ_ROOT/containers/dorado.sif"
+container_nextflow:   "$PROJ_ROOT/containers/nextflow.sif"
 
 # --- References ---
 
@@ -75,15 +77,15 @@ trim_skip_glob: ["*NTC*", "*unclassified*"]
 
 # --- Fastcat Filtering ---
 minlength: 1200
-maxlength: 1700
+maxlength: 1800
 min_qscore: 15
 
 # --- ITGDB mapping branch ---
 itgdb_minimap:
   preset: "map-ont"
-  primary_only: true    # --secondary=no -N 1
+  primary_only: false   # let minimap2 emit secondaries for discovery
   mapq_min: 10          # PAF col12 (plan to filter more in R if using a value </=10)
-  aln_min_bp: 1000      # PAF col11 (aln block length)
+  aln_min_bp: 800      # PAF col11 (aln block length)
 
 # --- SPOA guards ---
 spoa_max_reads: 400
@@ -99,6 +101,16 @@ strand: both
 sintax_cutoff: 0.5
 min_unique_size: 3
 
+# --- Optional Ep2ME Labs wf-16s for cross-referencing ---
+wf16s:
+  enable: true                 
+  repo: "epi2me-labs/wf-16s"              # nextflow pipeline repo
+  profile: "singularity"                  # or "docker" if you run docker
+  extra_args: "--minimap2_by_reference"   # anything else you want to pass
+  out_dir: ""                             # default set in Snakefile → OUT+"/wf16s"
+  work_dir: ""                            # default set in Snakefile → TMP+"/wf16s_work"
+  rev: ""
+
 # --- Resources (per-rule; partitions differ where needed) ---
 resources:
   dorado_basecall: {threads: 8,  mem_mb: 3200,  runtime: 180,  slurm_partition: gpu, slurm_account: richlab, slurm_extra: "--gres='gpu:1' --constraint='gpu_v100|gpu_t4'"}
@@ -108,7 +120,9 @@ resources:
 
   fastcat_filter:        {threads: 4,  mem_mb: 8000,  runtime: 60,  partition: batch, account: richlab}
   nanoplot_qc:           {threads: 2,  mem_mb: 4000,  runtime: 30,  partition: batch, account: richlab}
+
   stage_wf16s_input:     {threads: 1,  mem_mb: 2000,  runtime: 15,  partition: batch, account: richlab}
+  wf16s_run:             {threads: 16, mem_mb: 64000, runtime: 300, partition: batch, account: richlab}
 
   itgdb_index:           {threads: 4,  mem_mb: 8000,  runtime: 60,  partition: batch, account: richlab}
   itgdb_taxmap:          {threads: 1,  mem_mb: 2000,  runtime: 15,  partition: batch, account: richlab}
@@ -118,6 +132,7 @@ resources:
   isonclust3:            {threads: 16, mem_mb: 32000, runtime: 240, partition: batch, account: richlab}
   spoa_consensus:        {threads: 8,  mem_mb: 16000, runtime: 720, partition: batch, account: richlab}
   vsearch_pool_cluster:  {threads: 16, mem_mb: 32000, runtime: 300, partition: batch, account: richlab}
+  uniqify_otu_centroids: {threads: 16, mem_mb: 32000, runtime: 240, partition: batch, account: richlab}
   map_all_reads:         {threads: 16, mem_mb: 32000, runtime: 240, partition: batch, account: richlab}
   racon_round1:          {threads: 16, mem_mb: 96000, runtime: 720, partition: batch, account: richlab}
   map_r1:                {threads: 8,  mem_mb: 16000, runtime: 180, partition: batch, account: richlab}

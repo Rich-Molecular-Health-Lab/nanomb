@@ -42,6 +42,40 @@ export SINGULARITY_TMPDIR="${APPTAINER_TMPDIR}"
 mkdir -p "${XDG_CACHE_HOME}" "${TMPDIR}" "${APPTAINER_CACHEDIR}" "${APPTAINER_TMPDIR}"
 
 # -------------------------------
+# Nextflow runtime dirs (host)
+# -------------------------------
+
+# ---- Nextflow working/cache dirs (host) ----
+export NXF_WORK="${OUT_ROOT}/tmp/wf16s_work"
+export NXF_HOME="${OUT_ROOT}/tmp/.nxf"
+export NXF_ASSETS="${NXF_HOME}/assets"
+mkdir -p "${NXF_WORK}" "${NXF_HOME}" "${NXF_ASSETS}"
+
+# ---- Prefer shared cache on clusters ----
+: "${XDG_CACHE_HOME:=${NRDSTOR:-$HOME}/.cache}"
+: "${APPTAINER_CACHEDIR:=${NRDSTOR:-$HOME}/.apptainer/cache}"
+: "${APPTAINER_TMPDIR:=${NRDSTOR:-$HOME}/.apptainer/tmp}"
+mkdir -p "$XDG_CACHE_HOME" "$APPTAINER_CACHEDIR" "$APPTAINER_TMPDIR"
+
+# Nextflow knows how to use apptainer/singularity cache
+export NXF_SINGULARITY_CACHEDIR="$APPTAINER_CACHEDIR"
+
+# Be robust to slow pulls
+export NXF_OPTS='-Dsingularity.pullTimeout=1h'
+
+# ---- Pick a container engine automatically ----
+if command -v apptainer >/dev/null 2>&1; then
+  export NF_PROFILE="apptainer"
+elif command -v singularity >/dev/null 2>&1; then
+  export NF_PROFILE="singularity"
+elif command -v docker >/dev/null 2>&1; then
+  export NF_PROFILE="docker"
+else
+  # last resort: conda (not my first choice, but reproducible if pinned)
+  export NF_PROFILE="conda"
+fi
+
+# -------------------------------
 # Echo summary (debugging)
 # -------------------------------
 cat <<EOF
