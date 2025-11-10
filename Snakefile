@@ -615,37 +615,21 @@ rule stage_wf16s_input:
       in_dir="{input.filt_dir}"
       out_dir="{output.indir}"
       mkdir -p "$out_dir"
-      
+
       shopt -s nullglob
-      n=0
       for fq in "$in_dir"/*.fastq "$in_dir"/*.fastq.gz; do
         [[ -s "$fq" ]] || continue
         base="$(basename "$fq")"
         stem="$(printf "%s" "$base" | sed -E 's/\.fastq(\.gz)?$//')"
-
-        if [[ "$stem" == *"__"* ]]; then
-          sid="${stem#*__}"
-        else
-          sid="$stem"
-        fi
+        sid="$(printf "%s" "$stem" | sed -E 's/^.*_//')"
 
         sdir="$out_dir/$sid"
         mkdir -p "$sdir"
-
         ln -sf "$fq" "$sdir/$base"
-        n=$((n+1))
       done
 
-      echo "[stage_wf16s_input] created $(find "$out_dir" -mindepth 1 -maxdepth 1 -type d | wc -l) sample dirs" >&2
-      find "$out_dir" -mindepth 1 -maxdepth 1 -type d | head -n 5 >&2
-
-      for fq in "$in_dir"/*.fastq "$in_dir"/*.fastq.gz; do
-        base="$(basename "$fq")"
-        sid="$(printf "%s" "$base" | sed -E 's/\.fastq(\.gz)?$//')"
-
-        ln -sf "$fq" "$out_dir/$base"
-        printf "%s\t%s\n" "$sid" "$out_dir/$base" >> "$man"
-      done
+      echo "[stage_wf16s_input] sample dirs: $(find "$out_dir" -mindepth 1 -maxdepth 1 -type d | wc -l)" >&2
+      find "$out_dir" -mindepth 1 -maxdepth 1 -type d | sort | head -n 8 >&2
     """
     
 rule wf16s_run:
@@ -692,6 +676,9 @@ rule wf16s_run:
         fi
       fi
 
+      echo "[wf16s_run] using per-sample dir layout under: {input.indir}" >&2
+      find "{input.indir}" -mindepth 1 -maxdepth 1 -type d | sort | head -n 8 >&2
+      
       nf_cmd=( nextflow run "{params.repo}"
                --fastq "{input.indir}"
                --min_len "{params.minlen}"
