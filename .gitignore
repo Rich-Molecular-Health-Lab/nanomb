@@ -3,6 +3,9 @@
 .Rhistory
 .Rapp.history
 
+*.out
+*.err
+*.log
 nanomb_snakemake_*.out
 data/**/raw/**
 datasets/**         

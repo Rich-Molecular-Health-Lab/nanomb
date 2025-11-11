@@ -742,12 +742,22 @@ rule itgdb_taxmap:
         NF >= 2        {{ print $1, $2 }}
       ' "{input.tax}" > "{output.taxmap}"
       """
-    
+      
+def paf_targets(wc):
+    import glob, os
+    fq_dir = rules.fastcat_filter.output.fastq
+    fqs = sorted(glob.glob(os.path.join(fq_dir, "*.fastq")) +
+                 glob.glob(os.path.join(fq_dir, "*.fastq.gz")))
+    stems = [os.path.basename(f).replace(".fastq.gz","").replace(".fastq","") for f in fqs]
+    return expand(os.path.join(OUT, "itgdb", "{sid}.paf"), sid=stems)
+
 rule itgdb_map_reads:
     input:
-        reads = os.path.join(TMP, "filtered"),
+        reads = rules.fastcat_filter.output.fastq,
+        filt_done = rules.fastcat_filter.output.done,
         idx   = rules.itgdb_index.output.mmi
     output:
+        pafs = paf_targets,
         done  = touch(os.path.join(OUT, "itgdb", ".map_reads.done"))
     threads:   Rq("itgdb_map_reads", "threads")
     resources:
@@ -794,7 +804,7 @@ rule itgdb_map_reads:
     
 rule itgdb_species_tables:
     input:
-        paf_done = rules.itgdb_map_reads.output.done,
+        pafs    = rules.itgdb_map_reads.output.pafs,
         taxmap   = rules.itgdb_taxmap.output.taxmap
     output:
         merged   = os.path.join(OUT, "itgdb/species", "itgdb_species_merged.tsv")
@@ -821,7 +831,7 @@ rule itgdb_species_tables:
 import os, glob, csv, sys, re
 from collections import Counter
 
-paf_dir       = os.path.dirname(r"{input.paf_done}")
+paf_dir       = os.path.dirname(r"{input.pafs[0]}")
 taxmap_fn     = r"{input.taxmap}"
 species_merge = r"{output.merged}"
 
@@ -861,35 +871,30 @@ def species_from_tax(tax):
     if not tax or tax == "NA":
         return "Unassigned"
     m = re.search(r"s__([^;|,\s]+)", tax)
-    if m:
-        return m.group(1).replace("_", " ").strip()
+    if m: return m.group(1).replace("_"," ").strip()
     m = re.search(r"g__([^;|,\s]+)", tax)
-    if m:
-        return m.group(1).replace("_", " ").strip() + " sp."
+    if m: return m.group(1).replace("_"," ").strip() + " sp."
     parts = [p.strip() for p in re.split(r"[;|,]", tax) if p.strip()]
     if parts:
-        guess = re.sub(r'^.*__', '', parts[-1]).replace("_", " ").strip()
+        guess = re.sub(r'^.*__', '', parts[-1]).replace("_"," ").strip()
         toks = guess.split()
-        if len(toks) >= 2:
-            return toks[-2] + " " + toks[-1]
+        if len(toks) >= 2: return toks[-2] + " " + toks[-1]
         return guess or "Unassigned"
     return "Unassigned"
-
+  
 def genus_from_tax(tax):
     if not tax or tax == "NA":
         return "Unassigned"
     m = re.search(r"g__([^;|,\s]+)", tax)
-    if m:
-        return m.group(1).replace("_", " ").strip()
+    if m: return m.group(1).replace("_"," ").strip()
     parts = [p.strip() for p in re.split(r"[;|,]", tax) if p.strip()]
     for i, p in enumerate(parts):
         if p.startswith("s__") and i > 0:
-            return re.sub(r'^.*__', '', parts[i-1]).replace("_", " ").strip()
+            return re.sub(r'^.*__','', parts[i-1]).replace("_"," ").strip()
     if parts:
-        guess = re.sub(r'^.*__', '', parts[-1]).replace("_", " ").strip()
+        guess = re.sub(r'^.*__','', parts[-1]).replace("_"," ").strip()
         toks = guess.split()
-        if len(toks) >= 2:
-            return toks[0]
+        if len(toks) >= 2: return toks[0]
         return guess or "Unassigned"
     return "Unassigned"
 
@@ -929,7 +934,6 @@ for paf in pafs:
 
             key = _norm_target_key(tname)
             tax = id2tax.get(key, "NA")
-
             sp = species_from_tax(tax)
             ge = genus_from_tax(tax)
 

@@ -83,23 +83,24 @@ min_qscore: 15
 # --- ITGDB mapping branch ---
 itgdb_minimap:
   preset: "map-ont"
-  primary_only: false   # let minimap2 emit secondaries for discovery
+  primary_only: true   
   mapq_min: 10          # PAF col12 (plan to filter more in R if using a value </=10)
   aln_min_bp: 800      # PAF col11 (aln block length)
+  details_dir: "itgdb/reads" 
 
 # --- SPOA guards ---
 spoa_max_reads: 400
-spoa_min_reads: 5
+spoa_min_reads: 3
 spoa_extra: ""
 
 # --- VSEARCH OTUs / mapping / taxonomy ---
 otu_id_primary: 0.995
 otu_id_legacy:  0.97
-map_id: 0.95
+map_id: 0.90
 collapse_id: 0.997
 strand: both
-sintax_cutoff: 0.5
-min_unique_size: 3
+sintax_cutoff: 0.2
+min_unique_size: 2
 
 # --- Optional Ep2ME Labs wf-16s for cross-referencing ---
 wf16s:
@@ -122,7 +123,7 @@ resources:
   nanoplot_qc:           {threads: 2,  mem_mb: 4000,  runtime: 30,  partition: batch, account: richlab}
 
   stage_wf16s_input:     {threads: 1,  mem_mb: 2000,  runtime: 15,  partition: batch, account: richlab}
-  wf16s_run:             {threads: 12, mem_mb: 32000, runtime: 180, partition: batch, account: richlab}
+  wf16s_run:             {threads: 12, mem_mb: 64000, runtime: 720, partition: batch, account: richlab}
 
   itgdb_index:           {threads: 4,  mem_mb: 8000,  runtime: 60,  partition: batch, account: richlab}
   itgdb_taxmap:          {threads: 1,  mem_mb: 2000,  runtime: 15,  partition: batch, account: richlab}
