@@ -49,6 +49,36 @@ def R(rule, key, default=""):
     """Optional resource getter with empty-string default (e.g. for 'extra')."""
     return config.get("resources", {}).get(rule, {}).get(key, default)
 
+import re
+
+def _cfg(path, default=None):
+    cur = config
+    for k in path.split("."):
+        if not isinstance(cur, dict) or k not in cur: return default
+        cur = cur[k]
+    return cur
+
+def normalize_sample_id(s):
+    """Make sample ids from routing files, BAM/FQ names, etc. comparable."""
+    if s is None: return ""
+    x = str(s)
+
+    tok = _cfg("names.drop_after", "_")
+    keep_right = bool(_cfg("names.keep_right", True))  # default: keep right of token
+    if tok and tok in x:
+        left, right = x.split(tok, 1)
+        x = right if keep_right else left
+
+    for pat, repl in _cfg("names.replace", []):
+        x = re.sub(pat, repl, x)
+
+    for suf in _cfg("names.strip_suffix", []):
+        x = re.sub(f"{suf}$", "", x)
+
+    if _cfg("names.lower", False):
+        x = x.lower()
+
+    return x.strip()
   
 # --- dataset & layout ---
 SAMPLESET = _expand(config.get("sampleset", "")).strip()
@@ -140,10 +170,10 @@ ITGDB_UDB   = _expand(config["itgdb"]["sintax_udb"])
 ITGDB_FASTA = _expand(config["itgdb"]["seq_fasta"])     
 ITGDB_TAX   = _expand(config["itgdb"]["tax_tsv"])
 
-MAP_ID  = float(config.get("map_id", 0.98))
+MAP_ID  = float(config.get("map_id", 0.90))
 COLLAPSE_ID  = float(config.get("collapse_id", 0.997))
 STRAND  = config.get("strand", "both")
-SINTAX_CUTOFF = float(config.get("sintax_cutoff", 0.8))
+SINTAX_CUTOFF = float(config.get("sintax_cutoff", 0.5))
 MIN_UNIQUE = int(config.get("min_unique_size", 1))
 
 # Polishing paths
@@ -155,6 +185,28 @@ MAP_BAM_R0   = os.path.join(POLISH_DIR, "map_r0.bam")
 MAP_BAM_R1   = os.path.join(POLISH_DIR, "map_r1.bam")
 R1_FASTA     = os.path.join(POLISH_DIR, "r1.fasta")
 R2_FASTA     = os.path.join(POLISH_DIR, "r2.fasta")
+
+# Grouped, labeled path templates you can reuse in params/logs
+PATH_T = {
+    "run": {
+        "basecall_dir": BASECALL_DIR_T,
+        "demux_dir":    DEMUX_DIR_T,
+        "summary_dir":  SUMMARY_DIR_T,
+        "raw_dir":      RAW_DIR_T,
+        "logs_basecall": LOG_BASECALL_T,
+        "logs_trim":     LOG_TRIM_T,
+    },
+    "dset": {
+        "root":        OUT,
+        "tmp":         TMP,
+        "qc_dir":      os.path.join(OUT, "qc"),
+        "qc_hist":     os.path.join(OUT, "qc", "fastcat-histograms"),
+        "otu_dir":     os.path.join(OUT, "otu"),
+        "itgdb_dir":   os.path.join(OUT, "itgdb"),
+        "wf16s_in":    os.path.join(TMP, "wf16s_in"),
+        "filtered":    os.path.join(TMP, "filtered"),
+    }
+}
 
 # ---- runs: discover or use config ----
 def discover_runs():
@@ -178,13 +230,9 @@ RUNS = list(map(str, config.get("runs", []) or discover_runs()))
 if not RUNS:
     raise WorkflowError("No runs found. Set config.runs or ensure pod5 folders exist under layout.pod5_dir.")
 
-
-
-def demux_index_path(): return os.path.join(TMP, "demux_index.tsv")
-
 def load_routing_for_dataset(dataset):
     """
-    Return a dict: sample -> desired run (or None if unspecified).
+    Return a dict: normalized_sample -> desired run (or None if unspecified).
     TSV columns: sample, dataset, [run]
     """
     picks = {}
@@ -194,14 +242,42 @@ def load_routing_for_dataset(dataset):
         rdr = csv.DictReader(fh, delimiter="\t")
         for row in rdr:
             if row.get("dataset","").strip() == dataset:
-                s = row.get("sample","").strip()
+                s_raw = row.get("sample","").strip()
                 r = (row.get("run","") or "").strip() or None
-                if s:
-                    picks[s] = r
+                if s_raw:
+                    picks[normalize_sample_id(s_raw)] = r
     return picks
 
+# Load routing once and expose helpers
+ROUTE = load_routing_for_dataset(DATASET)   # dict: normalized sample -> run or None
+ROUTE_KEYS = set(ROUTE.keys())
+
+def sample_allowed(sample, run):
+    key = normalize_sample_id(sample)
+    want = ROUTE.get(key, None)
+    # must be routed to this dataset, and either run unspecified or matches
+    return (key in ROUTE) and (want is None or want == run)
+  
+def enabled_unknowns():
+    return bool(config.get("unknowns", {}).get("enable", False))
+
+UNKNOWN_DIR = os.path.join(OUT, "unknowns")
+Path(UNKNOWN_DIR).mkdir(parents=True, exist_ok=True)
+UNKNOWN_POOL = os.path.join(UNKNOWN_DIR, "unknown_pool.fastq")
+UNKNOWN_DEREP = os.path.join(UNKNOWN_DIR, "unknown_derep.fasta")
+UNKNOWN_CENT  = os.path.join(UNKNOWN_DIR, "unknown_centroids.fasta")
+UNKNOWN_CENT_FILT = os.path.join(UNKNOWN_DIR, "unknown_centroids.minabund.fasta")
+UNKNOWN_TABLE_DIR = os.path.join(OUT, "otu", "unknown_tables")
+UNKNOWN_TABLE_MERGED = os.path.join(OUT, "otu", "otu_table_unknown.tsv")
+  
 # ---- Build final targets safely (no functions leak into input) ----
 _demux_done = [os.path.join(raw_dir_for_run(r), "demux_trim.done") for r in RUNS]
+
+# move these up, above _final_targets
+OTU_TAX_BEST   = os.path.join(OUT, "otu", "otu_taxonomy_best.tsv")
+OTU_TABLE_KNOWN = os.path.join(OUT, "otu", "otu_table_merged.tsv")
+OTU_TABLE_ALL   = os.path.join(OUT, "otu", "otu_table_with_unknowns.tsv")
+OTU_TABLE_FINAL = os.path.join(OUT, "otu", "otu_table_final.tsv")
 
 _final_targets = (
     _demux_done
@@ -221,6 +297,12 @@ _final_targets = (
         os.path.join(OUT, "itgdb/species/itgdb_species_merged.tsv"),  
         os.path.join(TMP, "wf16s_in", ".staged.ok"),
       ]
+)
+
+_final_targets = tuple(_final_targets) + (
+    OTU_TAX_BEST,
+    OTU_TABLE_ALL,
+    OTU_TABLE_FINAL,
 )
 
 if WF16S_ENABLE:
@@ -248,6 +330,7 @@ rule preflight:
               
 rule manifest:
     output: os.path.join(OUT, "manifest.txt")
+    container: CONTAINERS["cpu"]
     run:
         import subprocess, yaml
         commit = subprocess.getoutput(f"git -C {PROJ} rev-parse --short HEAD")
@@ -395,33 +478,37 @@ def _samples_for_run_after_demux(wc):
     import csv as _csv
     ck  = checkpoints.demux_index_one_run.get(run=wc.run)
     idx = ck.output.tsv
-    samples = []
+    keep = []
     with open(idx) as fh:
         rdr = _csv.DictReader(fh, delimiter="\t")
         for row in rdr:
-            if row["run"] == wc.run:
-                samples.append(row["sample"])
-    if not samples:
-        raise WorkflowError(f"No samples listed for run={wc.run} in {idx}")
-    return sorted(set(samples))
-
-def trim_fastqs_for_run(wc):
-    return expand(os.path.join(raw_dir_for_run(wc.run), "{sample}.fastq"),
-                  sample=_samples_for_run_after_demux(wc))
+            if row["run"] != wc.run:
+                continue
+            s_demux = row["sample"]
+            if normalize_sample_id(s_demux) in ROUTE_KEYS:
+                keep.append(s_demux)   
+    if not keep:
+        return []
+    return sorted(set(keep))
 
 def bam_for_sample_run(wc):
     import csv as _csv
     ck = checkpoints.demux_index_one_run.get(run=wc.run)
     idx = ck.output.tsv
-    wanted = []
+    want = normalize_sample_id(wc.sample)
+    cands = []
     with open(idx) as fh:
         rdr = _csv.DictReader(fh, delimiter="\t")
         for row in rdr:
-            if row["run"] == wc.run and row["sample"] == wc.sample:
-                wanted.append(row["bam"])
-    if not wanted:
-        raise WorkflowError(f"No BAM for run={wc.run} sample={wc.sample} in {idx}")
-    return sorted(wanted)[-1]
+            if row["run"] == wc.run and normalize_sample_id(row["sample"]) == want:
+                cands.append(row["bam"])
+    if not cands:
+        raise WorkflowError(f"No BAM for run={wc.run} sample={wc.sample} (normalized={want}) in {idx}")
+    return sorted(cands)[-1]
+
+def trim_fastqs_for_run(wc):
+    return expand(os.path.join(raw_dir_for_run(wc.run), "{sample}.fastq"),
+                  sample=_samples_for_run_after_demux(wc))
 
 rule dorado_trim_sample:
     input: bam = bam_for_sample_run
@@ -513,12 +600,12 @@ rule fastcat_filter:
         account  = Rq("fastcat_filter", "account"),
         extra    = R("fastcat_filter", "extra")
     params:
-        outdir_base = OUT,
+        outdir_base = PATH_T["dset"]["root"],
+        histdir     = PATH_T["dset"]["qc_hist"],
         container_rev = lambda wc: config["container_rev"].get("cpu","0"),
         min_q   = lambda wc: config["min_qscore"],
         minlen  = lambda wc: config["minlength"],
         maxlen  = lambda wc: config["maxlength"],
-        histdir = lambda wc: os.path.join(OUT, "qc", "fastcat-histograms"),
         exclude = lambda wc: " ".join(config.get("trim_skip_glob", [])) or "__NONE__"
     log: os.path.join(OUT, "logs/fastcat_filter.log")
     benchmark: os.path.join(OUT, "benchmarks/fastcat_filter.tsv")
@@ -600,8 +687,8 @@ rule stage_wf16s_input:
         filt_done = rules.fastcat_filter.output.done,
         filt_dir  = rules.fastcat_filter.output.fastq
     output:
-        indir    = directory(os.path.join(TMP, "wf16s_in")),
-        done     = touch(os.path.join(TMP, "wf16s_in", ".staged.ok"))
+        indir = directory(PATH_T["dset"]["wf16s_in"]),
+        done  = touch(os.path.join(PATH_T["dset"]["wf16s_in"], ".staged.ok"))
     threads: Rq("stage_wf16s_input", "threads")
     resources:
         mem_mb   = Rq("stage_wf16s_input", "mem_mb"), 
@@ -609,28 +696,61 @@ rule stage_wf16s_input:
         partition = Rq("stage_wf16s_input", "partition"),
         account  = Rq("stage_wf16s_input", "account"),
         extra    =  R("stage_wf16s_input", "extra") 
+    params:
+        drop_after = lambda wc: (config.get("names", {}) or {}).get("drop_after", "__"),
+        container_rev = lambda wc: config["container_rev"].get("cpu","0")
     container: CONTAINERS["cpu"]
-    shell: r"""
-      set -euo pipefail
-      in_dir="{input.filt_dir}"
-      out_dir="{output.indir}"
-      mkdir -p "$out_dir"
+    run:
+        import os, glob, shutil, sys
+        in_dir  = input.filt_dir
+        out_dir = output.indir
+        token   = params.drop_after
 
-      shopt -s nullglob
-      for fq in "$in_dir"/*.fastq "$in_dir"/*.fastq.gz; do
-        [[ -s "$fq" ]] || continue
-        base="$(basename "$fq")"
-        stem="$(printf "%s" "$base" | sed -E 's/\.fastq(\.gz)?$//')"
-        sid="$(printf "%s" "$stem" | sed -E 's/^.*_//')"
+        os.makedirs(out_dir, exist_ok=True)
 
-        sdir="$out_dir/$sid"
-        mkdir -p "$sdir"
-        ln -sf "$fq" "$sdir/$base"
-      done
+        # Gather both .fastq and .fastq.gz produced by fastcat_filter
+        files = sorted(glob.glob(os.path.join(in_dir, "*.fastq"))) + \
+                sorted(glob.glob(os.path.join(in_dir, "*.fastq.gz")))
 
-      echo "[stage_wf16s_input] sample dirs: $(find "$out_dir" -mindepth 1 -maxdepth 1 -type d | wc -l)" >&2
-      find "$out_dir" -mindepth 1 -maxdepth 1 -type d | sort | head -n 8 >&2
-    """
+        kept, skipped = 0, 0
+        for fq in files:
+            base = os.path.basename(fq)
+            stem = base
+            if stem.endswith(".fastq.gz"): stem = stem[:-9]
+            elif stem.endswith(".fastq"):  stem = stem[:-6]
+
+            # fastcat_filter names are "run__sample" (or whatever token you set)
+            run_id, sample_part = None, stem
+            if token and token in stem:
+                run_id, sample_part = stem.split(token, 1)
+            else:
+                # fallback: last "_" chunk is sample, rest is run
+                parts = stem.split("_")
+                if len(parts) >= 2:
+                    run_id, sample_part = "_".join(parts[:-1]), parts[-1]
+
+            # Gate by routing: only stage samples that belong to this DATASET (and run, if constrained)
+            if not sample_allowed(sample_part, run_id):
+                skipped += 1
+                continue
+
+            norm_sid = normalize_sample_id(sample_part)
+            sdir = os.path.join(out_dir, norm_sid)
+            os.makedirs(sdir, exist_ok=True)
+            link_path = os.path.join(sdir, base)
+            try:
+                if os.path.islink(link_path) or os.path.exists(link_path):
+                    os.remove(link_path)
+                os.symlink(os.path.abspath(fq), link_path)
+            except OSError:
+                # FS without symlink perms: fall back to hardlink or copy
+                try:
+                    os.link(fq, link_path)
+                except OSError:
+                    shutil.copy2(fq, link_path)
+            kept += 1
+
+        sys.stderr.write(f"[stage_wf16s_input] staged {kept} files; skipped {skipped} (not routed)\n")
     
 rule wf16s_run:
     input:
@@ -693,7 +813,7 @@ rule wf16s_run:
       printf "%q " "${{nf_cmd[@]}}" >&2; echo >&2
 
       # Run with plain streaming output
-      {{ "${{nf_cmd[@]}}"; }}
+      "${{nf_cmd[@]}}"
       
       : > "{output.done}"
     """
@@ -757,7 +877,6 @@ rule itgdb_map_reads:
         filt_done = rules.fastcat_filter.output.done,
         idx   = rules.itgdb_index.output.mmi
     output:
-        pafs = paf_targets,
         done  = touch(os.path.join(OUT, "itgdb", ".map_reads.done"))
     threads:   Rq("itgdb_map_reads", "threads")
     resources:
@@ -801,11 +920,296 @@ rule itgdb_map_reads:
 
       touch "{output.done}"
     """
-    
+
+# Per-sample unknown (unmapped) read extraction
+def _fq_for_stem(wc):
+    import os
+    cand = os.path.join(rules.fastcat_filter.output.fastq, f"{wc.stem}.fastq")
+    if not os.path.exists(cand):
+        gz = cand + ".gz"
+        if os.path.exists(gz):
+            return gz
+    return cand
+
+def _paf_for_stem(wc):
+    import os
+    return os.path.join(OUT, "itgdb", f"{wc.stem}.paf")
+
+def _filtered_stems():
+    import glob, os
+    d = rules.fastcat_filter.output.fastq
+    fqs = sorted(glob.glob(os.path.join(d, "*.fastq")) +
+                 glob.glob(os.path.join(d, "*.fastq.gz")))
+    return [os.path.basename(f).replace(".fastq.gz","").replace(".fastq","") for f in fqs]
+
+rule unknown_extract_p_samp:
+    input:
+        fq  = _fq_for_stem,
+        paf = _paf_for_stem
+    output:
+        unk = os.path.join(UNKNOWN_DIR, "{stem}.unknown.fastq")
+    threads:   Rq("unknown_extract_p_samp", "threads")
+    resources:
+        mem_mb    = Rq("unknown_extract_p_samp", "mem_mb"),
+        runtime   = Rq("unknown_extract_p_samp", "runtime"),
+        partition = Rq("unknown_extract_p_samp", "partition"),
+        account   = Rq("unknown_extract_p_samp", "account"),
+        extra     = R("unknown_extract_p_samp", "extra"),
+    container: CONTAINERS["cpu"]
+    run:
+        import os, gzip
+        mapped = set()
+        paf = input.paf
+        if os.path.exists(paf) and os.path.getsize(paf) > 0:
+            with open(paf, "r", encoding="utf-8", errors="ignore") as fh:
+                for line in fh:
+                    if not line or line.startswith("#"): 
+                        continue
+                    q = line.split("\t", 1)[0].split()[0]
+                    mapped.add(q)
+
+        def opener(path):
+            return gzip.open(path, "rt") if path.endswith(".gz") else open(path, "r", encoding="utf-8")
+
+        os.makedirs(os.path.dirname(output.unk), exist_ok=True)
+        with opener(input.fq) as fin, open(output.unk, "w", encoding="utf-8") as fo:
+            while True:
+                h = fin.readline()
+                if not h: break
+                s = fin.readline(); p = fin.readline(); q = fin.readline()
+                if not q: break
+                sid = h[1:].strip().split()[0] if h.startswith("@") else h.strip().split()[0]
+                if sid not in mapped:
+                    fo.write(h); fo.write(s); fo.write(p); fo.write(q)
+
+
+# 2.2 subsample each unknowns file
+rule unknown_subsample:
+    input:
+        unk = rules.unknown_extract_p_samp.output.unk
+    output:
+        sub = os.path.join(UNKNOWN_DIR, "{stem}.unknown.fastq.sub.fastq")
+    threads:   Rq("unknown_subsample", "threads")
+    resources:
+        mem_mb    = Rq("unknown_subsample", "mem_mb"),
+        runtime   = Rq("unknown_subsample", "runtime"),
+        partition = Rq("unknown_subsample", "partition"),
+        account   = Rq("unknown_subsample", "account"),
+        extra     = R("unknown_subsample", "extra"),
+    params:
+        n = lambda wc: int(config.get("unknowns", {}).get("subsample_n", 0))
+    container: CONTAINERS["cpu"]
+    shell: r"""
+      set -euo pipefail
+      n={params.n}
+      if [ "$n" -le 0 ]; then
+        ln -sf "{input.unk}" "{output.sub}"
+        exit 0
+      fi
+
+      PYBIN=$(command -v python || command -v python3 || true)
+      if [ -n "$PYBIN" ]; then
+        "$PYBIN" - <<'PY' "{input.unk}" "{output.sub}" $n
+import sys, random, gzip
+src, dst, n = sys.argv[1], sys.argv[2], int(sys.argv[3])
+random.seed(100)
+
+def open_any(p, mode):
+    return gzip.open(p, mode) if p.endswith(".gz") else open(p, mode)
+
+reservoir = []
+count = 0
+
+with open_any(src, "rt") as f:
+    while True:
+        h = f.readline()
+        if not h: break
+        s = f.readline(); plus = f.readline(); q = f.readline()
+        if not q: break
+        rec = (h, s, plus, q)
+        count += 1
+        if len(reservoir) < n:
+            reservoir.append(rec)
+        else:
+            j = random.randrange(count)
+            if j < n:
+                reservoir[j] = rec
+
+with open(dst, "w") as out:
+    for (h,s,p,q) in reservoir:
+        out.write(h); out.write(s); out.write(p); out.write(q)
+PY
+        exit 0
+      fi
+
+      echo "No Python found for subsampling and n>0. Consider installing seqtk or adding Python." >&2
+      exit 127
+    """
+
+
+def _unknown_pool_inputs(wc):
+    from snakemake.io import expand
+    return expand(os.path.join(UNKNOWN_DIR, "{stem}.unknown.fastq.sub.fastq"),
+                  stem=_filtered_stems())
+
+
+# 2.4 pool all subsampled unknowns (now driven by the fan-out)
+rule unknown_pool:
+    input:
+        subs = _unknown_pool_inputs
+    output:
+        pool = UNKNOWN_POOL
+    threads:   Rq("unknown_pool", "threads")
+    resources:
+        mem_mb    = Rq("unknown_pool", "mem_mb"),
+        runtime   = Rq("unknown_pool", "runtime"),
+        partition = Rq("unknown_pool", "partition"),
+        account   = Rq("unknown_pool", "account"),
+        extra     = R("unknown_pool", "extra"),
+    container: CONTAINERS["cpu"]
+    shell: r"""
+      set -euo pipefail
+      mkdir -p "$(dirname "{output.pool}")"
+      : > "{output.pool}"
+      for f in {input.subs}; do
+        [ -s "$f" ] && cat "$f" >> "{output.pool}"
+      done
+    """
+
+rule unknown_cluster:
+    input: pool = rules.unknown_pool.output.pool
+    output:
+        derep = UNKNOWN_DEREP,
+        cent  = UNKNOWN_CENT,
+        cent_filt = UNKNOWN_CENT_FILT
+    threads: Rq("unknown_cluster", "threads")
+    resources:
+        mem_mb   = Rq("unknown_cluster", "mem_mb"),
+        runtime  = Rq("unknown_cluster", "runtime"),
+        partition = Rq("unknown_cluster", "partition"),
+        account  = Rq("unknown_cluster", "account"),
+        extra    = R("unknown_cluster", "extra")
+    params:
+        cid   = lambda wc: float(config["unknowns"]["id"]),
+        minsz = lambda wc: int(config["unknowns"]["min_total_abund"])
+    container: CONTAINERS["cpu"]
+    shell: r"""
+      set -euo pipefail
+      if ! grep -q '^@' "{input.pool}"; then
+        : > "{output.derep}"; : > "{output.cent}"; : > "{output.cent_filt}"
+        exit 0
+      fi
+      command -v vsearch >/dev/null || {{ echo "vsearch not found"; exit 127; }}
+      vsearch --derep_fulllength "{input.pool}" \
+              --sizeout --relabel UNK_ --threads {threads} \
+              --output "{output.derep}"
+      if ! grep -q '^>' "{output.derep}"; then
+        : > "{output.cent}"; : > "{output.cent_filt}"; exit 0
+      fi
+      vsearch --cluster_fast "{output.derep}" \
+              --id {params.cid} --strand both --sizein --sizeout \
+              --centroids "{output.cent}" --threads {threads}
+      # Filter by size= in fasta header
+      awk '/^>/{{
+             if (match($0,/size=([0-9]+)/,m)) {{ keep=(m[1]>={params.minsz}) }} else {{ keep=1 }}
+             if (keep) print
+           }} !/^>/{{
+             if (keep) print
+           }}' "{output.cent}" > "{output.cent_filt}"
+    """
+
+rule unknown_tbl_per_samp:
+    input:
+        refs = rules.unknown_cluster.output.cent_filt,
+        subs = expand(os.path.join(UNKNOWN_DIR, "{stem}.unknown.fastq.sub.fastq"),
+                      stem=_filtered_stems())
+    output:
+        merged = UNKNOWN_TABLE_MERGED
+    threads: Rq("unknown_tbl_per_samp", "threads")
+    resources:
+        mem_mb   = Rq("unknown_tbl_per_samp", "mem_mb"),
+        runtime  = Rq("unknown_tbl_per_samp", "runtime"),
+        partition = Rq("unknown_tbl_per_samp", "partition"),
+        account  = Rq("unknown_tbl_per_samp", "account"),
+        extra    = R("unknown_tbl_per_samp", "extra")
+    params:
+        dir = UNKNOWN_TABLE_DIR,
+        id    = lambda wc: float(config.get("unknowns", {}).get("id", 0.70)),
+        iddef = lambda wc: int(config.get("unknowns", {}).get("iddef", 1))
+    container: CONTAINERS["cpu"]
+    run:
+        import glob, os, csv, subprocess, shlex
+
+        refs = input.refs
+        subs = list(input.subs)
+        out = output.merged
+        tdir = params.dir
+        os.makedirs(tdir, exist_ok=True)
+
+        # If no unknown refs, emit empty table
+        if (not os.path.exists(refs)) or (os.path.getsize(refs) == 0):
+            with open(out, "w", newline="") as fh:
+                csv.writer(fh, delimiter="\t").writerow(["OTU"])
+            return
+
+        # Generate per-sample tables
+        made = []
+        for f in subs:
+            if not os.path.exists(f) or os.path.getsize(f) == 0:
+                continue
+            sid = os.path.basename(f).replace(".unknown.fastq.sub.fastq","")
+            tab = os.path.join(tdir, f"otu_unknown_{sid}.tsv")
+            cmd = f'vsearch --usearch_global {shlex.quote(f)} --db {shlex.quote(refs)} ' \
+                  f'--id {params.id} --iddef {params.iddef} --strand both --qmask none ' \
+                  f'--otutabout {shlex.quote(tab)} --threads {threads}'
+            subprocess.run(cmd, shell=True, check=True)
+            if os.path.exists(tab) and os.path.getsize(tab) > 0:
+                made.append(tab)
+
+        if not made:
+            with open(out, "w", newline="") as fh:
+                csv.writer(fh, delimiter="\t").writerow(["OTU"])
+            return
+
+        # read all per-sample tables into dict-of-dicts
+        sample_names = []
+        data = {}  # OTU -> { sample: count }
+        for tab in sorted(made):
+            sid = os.path.basename(tab)
+            if sid.startswith("otu_unknown_"): sid = sid[len("otu_unknown_"):]
+            if sid.endswith(".tsv"): sid = sid[:-4]
+            sample_names.append(sid)
+
+            with open(tab, newline="") as fh:
+                r = csv.reader(fh, delimiter="\t")
+                header = next(r, None)
+                for row in r:
+                    if not row: continue
+                    if row[0].startswith("#"): continue
+                    if row[0].upper() in ("OTU","OTUID","OTU_ID","OTUID"): continue
+                    otu = row[0]
+                    val = 0
+                    for x in row[1:]:
+                        try:
+                            s = str(x).strip()
+                            if s and s.upper() != "NA":
+                                val += int(float(s))
+                        except Exception:
+                            pass
+                    data.setdefault(otu, {})
+                    data[otu][sid] = data[otu].get(sid, 0) + val
+
+        # write merged table
+        with open(out, "w", newline="") as fh:
+            w = csv.writer(fh, delimiter="\t")
+            w.writerow(["OTU"] + sample_names)
+            for otu in sorted(data.keys()):
+                w.writerow([otu] + [data[otu].get(s, 0) for s in sample_names])
+                
 rule itgdb_species_tables:
     input:
-        pafs    = rules.itgdb_map_reads.output.pafs,
-        taxmap   = rules.itgdb_taxmap.output.taxmap
+        done   = rules.itgdb_map_reads.output.done, 
+        taxmap = rules.itgdb_taxmap.output.taxmap
     output:
         merged   = os.path.join(OUT, "itgdb/species", "itgdb_species_merged.tsv")
     threads: Rq("itgdb_species_tables", "threads")
@@ -831,12 +1235,13 @@ rule itgdb_species_tables:
 import os, glob, csv, sys, re
 from collections import Counter
 
-paf_dir       = os.path.dirname(r"{input.pafs[0]}")
 taxmap_fn     = r"{input.taxmap}"
 species_merge = r"{output.merged}"
 
-species_dir = os.path.dirname(species_merge)
-genus_dir   = os.path.join(os.path.dirname(species_dir), "genus")
+species_dir = os.path.dirname(species_merge)          
+itgdb_dir   = os.path.dirname(species_dir)            
+genus_dir   = os.path.join(itgdb_dir, "genus")
+paf_dir     = itgdb_dir                              
 os.makedirs(species_dir, exist_ok=True)
 os.makedirs(genus_dir,   exist_ok=True)
 
@@ -1450,7 +1855,50 @@ rule chimera_taxonomy:
               --tabbedout "{output.sintax}" \
               --threads {threads}
     """
-    
+
+rule otu_taxonomy_best:
+    input: sintax = rules.chimera_taxonomy.output.sintax
+    output: tax = OTU_TAX_BEST
+    threads:   Rq("otu_taxonomy_best", "threads")
+    resources:
+        mem_mb    = Rq("otu_taxonomy_best", "mem_mb"),
+        runtime   = Rq("otu_taxonomy_best", "runtime"),
+        partition = Rq("otu_taxonomy_best", "partition"),
+        account   = Rq("otu_taxonomy_best", "account"),
+        extra     =  R("otu_taxonomy_best", "extra"),
+    container: CONTAINERS["cpu"]
+    run:
+        import csv, re
+        def best_label(tax, cutoff=0.0):
+            if not tax: return "Unassigned"
+            s = tax.strip()
+            # try species
+            m = re.search(r"s__([^,;| ]+)", s)
+            if m: return m.group(1).replace("_"," ").strip()
+            # genus
+            m = re.search(r"g__([^,;| ]+)", s)
+            if m:
+                g = m.group(1).replace("_"," ").strip()
+                return f"{g} sp."
+            # family→order→class→phylum→domain
+            for rank in ["f","o","c","p","k","d"]:
+                m = re.search(fr"{rank}__([^,;| ]+)", s)
+                if m:
+                    r = m.group(1).replace("_"," ").strip()
+                    return f"{r} sp."
+            return "Unassigned"
+
+        with open(input.sintax, newline="", encoding="utf-8", errors="ignore") as fh, \
+             open(output.tax, "w", newline="", encoding="utf-8") as fo:
+            r = csv.reader(fh, delimiter="\t")
+            w = csv.writer(fo, delimiter="\t")
+            w.writerow(["OTU","taxonomy","label_best"])
+            for row in r:
+                if not row: continue
+                otu = row[0]
+                tax = row[1] if len(row)>1 else ""
+                w.writerow([otu, tax, best_label(tax)])
+                
 rule collapse_ultraclose:
     input:
         fasta = rules.chimera_taxonomy.output.nonchim
@@ -1563,12 +2011,12 @@ rule otu_table_per_sample:
         extra     = R("otu_table_per_sample", "extra")
     params:
         container_rev = lambda wc: config["container_rev"].get("cpu","0"),
-        map_id        = lambda wc: MAP_ID,
-        strand        = lambda wc: STRAND,
-        iddef         = 1,
-        qcov          = 0.90,
-        tcov          = 0.90,
-        qmask         = "none",
+        map_id        = lambda wc: float(config.get("map_id", 0.90)),
+        strand        = lambda wc: config.get("strand", "both"),
+        iddef         = lambda wc: int(config.get("otu_mapping", {}).get("iddef", 1)),
+        qcov          = lambda wc: float(config.get("otu_mapping", {}).get("qcov", 0.90)),
+        tcov          = lambda wc: float(config.get("otu_mapping", {}).get("tcov", 0.90)),
+        qmask         = lambda wc: str(config.get("otu_mapping", {}).get("qmask", "none")),
         tables_dir    = os.path.join(OUT, "otu", "tables")
     container: CONTAINERS["cpu"]
     shell:
@@ -1579,9 +2027,10 @@ rule otu_table_per_sample:
 
       PYBIN=$(command -v python || command -v python3 || true)
       [ -n "$PYBIN" ] || {{ echo "No python interpreter found."; exit 127; }}
+      
+      [[ {params.qcov} == 0.0 ]] && echo "warning: qcov=0 disables coverage filtering" >&2
 
       for fq in "{input.reads}"/*.fastq; do
-        sid=$(basename "$fq" .fastq)
         sid=$(basename "$fq" .fastq)
         vsearch --usearch_global "$fq" \
                 --db "{input.refs}" \
@@ -1645,3 +2094,122 @@ with open(out, "w", newline="") as fh:
 PY
       """
 
+rule merge_known_unknown:
+    input:
+        known = rules.otu_table_per_sample.output.merged,
+        unk   = rules.unknown_tbl_per_samp.output.merged if enabled_unknowns() else rules.otu_table_per_sample.output.merged
+    output:
+        merged = OTU_TABLE_ALL
+    threads: Rq("merge_known_unknown", "threads")
+    resources:
+        mem_mb    = Rq("merge_known_unknown", "mem_mb"),
+        runtime   = Rq("merge_known_unknown", "runtime"),
+        partition = Rq("merge_known_unknown", "partition"),
+        account   = Rq("merge_known_unknown", "account"),
+        extra     =  R("merge_known_unknown", "extra")
+    container: CONTAINERS["cpu"]
+    run:
+        import os, csv
+        import collections
+
+        known = input.known
+        unk = input.unk
+        out = output.merged
+
+        def load_tsv(path):
+            rows = []
+            with open(path, newline="") as fh:
+                for i, row in enumerate(csv.reader(fh, delimiter="\t")):
+                    rows.append(row)
+            return rows
+
+        if not os.path.exists(unk):
+            # just copy known
+            import shutil
+            shutil.copy2(known, out)
+            return
+
+        K = load_tsv(known)
+        U = load_tsv(unk)
+
+        # If either is header-only, handle simply
+        if len(U) <= 1:
+            import shutil
+            shutil.copy2(known, out); return
+        if len(K) <= 1:
+            import shutil
+            shutil.copy2(unk, out); return
+
+        k_header, *k_rows = K
+        u_header, *u_rows = U
+        k_samples = k_header[1:]
+        u_samples = u_header[1:]
+        all_samples = k_samples[:]  # assume same names since both came from filtered FASTQs
+        # If sample sets differ, union them
+        for s in u_samples:
+            if s not in all_samples: all_samples.append(s)
+
+        # maps
+        def build_map(rows):
+            m = {}
+            for r in rows:
+                if not r: continue
+                m[r[0]] = { s:int(v) if (v and v!='NA') else 0 for s, v in zip(all_samples, r[1:] + [0]*(len(all_samples)-len(r)+1)) }
+            return m
+
+        km = build_map(k_rows)
+        um = build_map(u_rows)
+
+        # merge
+        otus = sorted(set(km.keys()) | set(um.keys()))
+        with open(out, "w", newline="") as fh:
+            w = csv.writer(fh, delimiter="\t")
+            w.writerow(["OTU"] + all_samples)
+            for o in otus:
+                row = [o] + [ (km.get(o,{}).get(s,0) + um.get(o,{}).get(s,0)) for s in all_samples ]
+                w.writerow(row)
+
+rule apply_taxonomy_filter:
+    input:
+        table = rules.merge_known_unknown.output.merged,            # counts with unknowns
+        tax   = rules.otu_taxonomy_best.output.tax
+    output:
+        final = OTU_TABLE_FINAL
+    threads:   Rq("apply_taxonomy_filter", "threads")
+    resources:
+        mem_mb    = Rq("apply_taxonomy_filter", "mem_mb"),
+        runtime   = Rq("apply_taxonomy_filter", "runtime"),
+        partition = Rq("apply_taxonomy_filter", "partition"),
+        account   = Rq("apply_taxonomy_filter", "account"),
+        extra     =  R("apply_taxonomy_filter", "extra"),
+    container: CONTAINERS["cpu"]
+    params:
+        enable = lambda wc: bool(config.get("taxonomy_filter",{}).get("drop_euk_chl_mito", False)),
+        pats   = lambda wc: list(config.get("taxonomy_filter",{}).get("patterns", []))
+    run:
+        import csv, re
+        enable = params.enable
+        pats = params.pats
+        to_drop = set()
+        if enable and pats and os.path.exists(input.tax):
+            rx = re.compile("|".join([re.escape(p) for p in pats]), flags=re.I)
+            with open(input.tax, newline="", encoding="utf-8", errors="ignore") as fh:
+                r = csv.DictReader(fh, delimiter="\t")
+                for row in r:
+                    tax = row.get("taxonomy","") or ""
+                    if rx.search(tax):
+                        to_drop.add(row["OTU"])
+
+        with open(input.table, newline="", encoding="utf-8") as fin, \
+             open(output.final, "w", newline="", encoding="utf-8") as fout:
+            rr = csv.reader(fin, delimiter="\t")
+            w  = csv.writer(fout, delimiter="\t")
+            header = next(rr, None)
+            if header: w.writerow(header)
+            for row in rr:
+                if not row: continue
+                otu = row[0]
+                if enable and otu in to_drop:
+                    continue
+                w.writerow(row)
+                

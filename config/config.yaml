@@ -30,6 +30,14 @@ out_root: "/mnt/nrdstor/richlab/shared/datasets/16s" # Root of all other directo
 run_glob: "*"      # limit to a glob, e.g. "2025-10-*"
 run_regex: ""      # or a regex, e.g. "^2025-10-(01|03)_"
 
+# --- Name normalization ---
+names:
+  drop_after: "_"      # split on "_"
+  keep_right: true     # keep the right side by default
+  replace: []          # optional [ [pattern, replacement], ... ]
+  strip_suffix: []     # optional ["_R1", ".fastq", ...]
+  lower: false
+
 # --- Layout ---
 layout: # You only need to begin by transferring pod5_dir, sample_sheet_dir, sample_sheet_name, and sample_routing. The pipeline will populate the rest.
   pod5_dir:           "{sampleset}/pod5" # This is the initial directory where you load the raw pod5 files from an ONT run
@@ -56,7 +64,6 @@ container_dorado:    "$PROJ_ROOT/containers/dorado.sif"
 container_nextflow:   "$PROJ_ROOT/containers/nextflow.sif"
 
 # --- References ---
-
 itgdb:
   seq_fasta:  "/mnt/nrdstor/richlab/shared/databases/itgdb_16s/taxa_itgdb_seq.fasta"
   tax_tsv:    "/mnt/nrdstor/richlab/shared/databases/itgdb_16s/taxa_itgdb_taxa.txt"
@@ -80,6 +87,11 @@ minlength: 1200
 maxlength: 1800
 min_qscore: 15
 
+# --- SPOA guards ---
+spoa_max_reads: 400
+spoa_min_reads: 3
+spoa_extra: ""
+
 # --- ITGDB mapping branch ---
 itgdb_minimap:
   preset: "map-ont"
@@ -87,12 +99,14 @@ itgdb_minimap:
   mapq_min: 10          # PAF col12 (plan to filter more in R if using a value </=10)
   aln_min_bp: 800      # PAF col11 (aln block length)
   details_dir: "itgdb/reads" 
+unknowns:
+  enable: true
+  id: 0.70
+  iddef: 1
+  min_total_abund: 5
+  subsample_n: 50000   # 0 = no subsampling
 
-# --- SPOA guards ---
-spoa_max_reads: 400
-spoa_min_reads: 3
-spoa_extra: ""
-
+  
 # --- VSEARCH OTUs / mapping / taxonomy ---
 otu_id_primary: 0.995
 otu_id_legacy:  0.97
@@ -101,6 +115,14 @@ collapse_id: 0.997
 strand: both
 sintax_cutoff: 0.2
 min_unique_size: 2
+taxonomy_filter:
+  drop_euk_chl_mito: true
+  patterns: ["Eukaryota", "Chloroplast", "Mitochondria"]
+otu_mapping:
+  iddef: 1          # vsearch identity definition (0=global,1=local)
+  qcov: 0.85        # minimum query coverage fraction
+  tcov: 0.85        # minimum target coverage fraction
+  qmask: "none"     # masking method for low-complexity regions
 
 # --- Optional Ep2ME Labs wf-16s for cross-referencing ---
 wf16s:
@@ -125,10 +147,19 @@ resources:
   stage_wf16s_input:     {threads: 1,  mem_mb: 2000,  runtime: 15,  partition: batch, account: richlab}
   wf16s_run:             {threads: 12, mem_mb: 64000, runtime: 720, partition: batch, account: richlab}
 
-  itgdb_index:           {threads: 4,  mem_mb: 8000,  runtime: 60,  partition: batch, account: richlab}
-  itgdb_taxmap:          {threads: 1,  mem_mb: 2000,  runtime: 15,  partition: batch, account: richlab}
-  itgdb_map_reads:       {threads: 16, mem_mb: 32000, runtime: 720, partition: batch, account: richlab}
-  itgdb_species_tables:  {threads: 2,  mem_mb: 8000,  runtime: 30,  partition: batch, account: richlab}
+  itgdb_index:            {threads: 4,  mem_mb: 8000,  runtime: 60,  partition: batch, account: richlab}
+  itgdb_taxmap:           {threads: 1,  mem_mb: 2000,  runtime: 15,  partition: batch, account: richlab}
+  itgdb_map_reads:        {threads: 16, mem_mb: 32000, runtime: 720, partition: batch, account: richlab}
+  itgdb_species_tables:   {threads: 2,  mem_mb: 8000,  runtime: 30,  partition: batch, account: richlab}
+  
+  unknown_extract_p_samp: {threads: 1 , mem_mb: 2000 , runtime: 60 , partition: batch, account: richlab}
+  unknown_subsample:      {threads: 1 , mem_mb: 1000 , runtime: 30 , partition: batch, account: richlab}
+  unknown_pool:           {threads: 1 , mem_mb: 1000 , runtime: 15 , partition: batch, account: richlab}
+  unknown_cluster:        {threads: 8 , mem_mb: 16000, runtime: 240, partition: batch, account: richlab}
+  unknown_tbl_per_samp:   {threads: 8 , mem_mb: 16000, runtime: 240, partition: batch, account: richlab}
+  merge_known_unknown:    {threads: 1 , mem_mb: 2000 , runtime: 20 , partition: batch, account: richlab}
+  otu_taxonomy_best:      {threads: 1 , mem_mb: 1000 , runtime: 20 , partition: batch, account: richlab}
+  apply_taxonomy_filter:  {threads: 1 , mem_mb: 1000 , runtime: 20 , partition: batch, account: richlab}
   
   isonclust3:            {threads: 16, mem_mb: 32000, runtime: 240, partition: batch, account: richlab}
   spoa_consensus:        {threads: 8,  mem_mb: 16000, runtime: 720, partition: batch, account: richlab}
