@@ -1,0 +1,76 @@
+---
+title: "summary"
+format: html
+---
+
+## Phase 0 — Setup
+
+- preflight → manifest
+
+## Phase 1 — Basecalling → Demux → Trim (per run, then consolidated)
+
+1. dorado_basecall[{run}] → dorado_demux[{run}] → checkpoint demux_index_one_run[{run}]
+2. dorado_trim_sample[{run},{sample}] (uses checkpoint + demuxed BAM)
+3. dorado_trim_run_done[{run}]
+4. Consolidator: dorado_all_runs (waits for all runs’ basecall+demux)
+
+## Phase 2 — QC & Fastq staging
+
+1. fastcat_filter (consumes all trimmed per-run fastqs)
+2. nanoplot_qc (after fastcat_filter)
+3. Optional Epi2ME branch: stage_wf16s_input → wf16s_run (both depend on fastcat_filter)
+
+## Phase 3 — ITGDB mapping (for knowns) + taxonomy tables
+
+1. Prep: itgdb_index (minimap2 index) and itgdb_taxmap
+2. Map: itgdb_map_reads (depends on fastcat_filter + itgdb_index)
+3. Summaries:
+
+  - itgdb_species_tables (depends on itgdb_map_reads.done + itgdb_taxmap)
+
+## Phase 4 — “Unknowns” branch (derived from unmapped reads)
+
+1. Per-sample extraction: unknown_extract_p_samp[{stem}] (needs itgdb_map_reads.done + per-sample filtered fastq)
+2. Optional: unknown_subsample[{stem}]
+3. Pool: unknown_pool (after all subsamples)
+4. Cluster: unknown_cluster (derep/centroids + min-abund)
+4. Per-sample OTU tables vs unknown refs: unknown_tbl_per_samp (merged unknowns count table)
+
+## Phase 5 — Draft OTU generation from reads (consensus → clustering)
+
+(Choose pooled or per-sample path; config enables pooled)
+
+### Pooled path:
+
+pooled_concat_reads → isonclust3_pooled → spoa_consensus_pooled
+
+### Non-pooled path:
+isonclust3 → spoa_consensus
+
+- Cluster drafts to OTUs at 99/97 and write centroids:
+vsearch_pool_cluster (consumes pooled consensus or non-pooled, per config) → otus_centroids_99.fasta & otus_centroids_97.fasta
+- Normalize headers: uniqify_otu_centroids
+
+## Phase 6 — Map all reads to 97% OTUs and polish references
+
+- Pool reads + map to 97% centroids: map_all_reads (produces map_r0.bam + all_reads.fastq)
+- Polish:
+- racon_round1 → map_r1 → racon_round2 → medaka_polish (final polished OTU refs)
+
+## Phase 7 — Post-polish curation, taxonomy, alignment, tree
+
+- Chimera + taxonomy: chimera_taxonomy → outputs:
+- otus_clean.fasta (non-chimeras)
+- otus_chimeras.fasta
+- otus_taxonomy.sintax
+- Best human-readable label per OTU: otu_taxonomy_best (from .sintax)
+- Collapse ultra-close sequences for final reference set: collapse_ultraclose (from otus_clean.fasta)
+- MSA: otu_alignment (from collapsed)
+- Tree: iqtree3_tree (from MSA)
+
+## Phase 8 — OTU count tables (knowns), merge unknowns, filter, final table
+
+- Known table per sample (reads → collapsed refs): otu_table_per_sample (uses collapse_ultraclose.fasta + filtered reads)
+- Merge known + unknown: merge_known_unknown (depends on otu_table_per_sample and unknown_tbl_per_samp when unknowns enabled)
+- Apply taxonomy filter (euk/chl/mito, etc.): apply_taxonomy_filter (needs merge_known_unknown + otu_taxonomy_best) → otu_table_final.tsv
+

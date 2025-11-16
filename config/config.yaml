@@ -57,11 +57,13 @@ container_rev:
   nanoalign: 2025-10-05
   dorado: 2025-10-05
   nextflow: 2025-11-08
+  tree: 2025-11-15
 container_cpu:       "$PROJ_ROOT/containers/nanomb.sif"
 container_gpu:       "$PROJ_ROOT/containers/nanombgpu.sif"
 container_nanoalign: "$PROJ_ROOT/containers/nanoalign.sif"
 container_dorado:    "$PROJ_ROOT/containers/dorado.sif"
 container_nextflow:   "$PROJ_ROOT/containers/nextflow.sif"
+container_tree:       "$PROJ_ROOT/containers/nanotree.sif"
 
 # --- References ---
 itgdb:
@@ -85,28 +87,33 @@ trim_skip_glob: ["*NTC*", "*unclassified*"]
 # --- Fastcat Filtering ---
 minlength: 1200
 maxlength: 1800
-min_qscore: 15
-
-# --- SPOA guards ---
-spoa_max_reads: 400
-spoa_min_reads: 3
-spoa_extra: ""
+min_qscore: 14
 
 # --- ITGDB mapping branch ---
 itgdb_minimap:
   preset: "map-ont"
   primary_only: true   
-  mapq_min: 10          # PAF col12 (plan to filter more in R if using a value </=10)
-  aln_min_bp: 800      # PAF col11 (aln block length)
+  mapq_min: 5          # PAF col12 (plan to filter more in R if using a value </=10)
+  aln_min_bp: 600      # PAF col11 (aln block length)
   details_dir: "itgdb/reads" 
 unknowns:
   enable: true
-  id: 0.70
+  id: 0.90
   iddef: 1
-  min_total_abund: 5
-  subsample_n: 50000   # 0 = no subsampling
+  min_total_abund: 2
+  subsample_n: 500000   # 0 = no subsampling
 
-  
+# --- Clustering ---
+pooled:
+  enable: true            # set to false to revert to per-sample
+  concat_name: "all_samples_pooled.fastq"
+  isonclust3_extra: ""
+
+# --- SPOA guards ---
+spoa_max_reads: 800
+spoa_min_reads: 2
+spoa_extra: ""
+
 # --- VSEARCH OTUs / mapping / taxonomy ---
 otu_id_primary: 0.995
 otu_id_legacy:  0.97
@@ -114,19 +121,21 @@ map_id: 0.90
 collapse_id: 0.997
 strand: both
 sintax_cutoff: 0.2
-min_unique_size: 2
+min_unique_size: 1
 taxonomy_filter:
   drop_euk_chl_mito: true
   patterns: ["Eukaryota", "Chloroplast", "Mitochondria"]
 otu_mapping:
   iddef: 1          # vsearch identity definition (0=global,1=local)
-  qcov: 0.85        # minimum query coverage fraction
-  tcov: 0.85        # minimum target coverage fraction
+  qcov: 0.80        # minimum query coverage fraction
+  tcov: 0.80        # minimum target coverage fraction
   qmask: "none"     # masking method for low-complexity regions
+medaka_batch: 100
+max_medaka_reads: 500000
 
 # --- Optional Ep2ME Labs wf-16s for cross-referencing ---
 wf16s:
-  enable: true                 
+  enable: false                 
   repo: "epi2me-labs/wf-16s"              # nextflow pipeline repo
   profile: "singularity"                  # or "docker" if you run docker
   extra_args: "--minimap2_by_reference"   # anything else you want to pass
@@ -136,10 +145,10 @@ wf16s:
 
 # --- Resources (per-rule; partitions differ where needed) ---
 resources:
-  dorado_basecall: {threads: 8,  mem_mb: 3200,  runtime: 180,  slurm_partition: gpu, slurm_account: richlab, slurm_extra: "--gres='gpu:1' --constraint='gpu_v100|gpu_t4'"}
-  dorado_demux:    {threads: 8,  mem_mb: 3200,  runtime: 120,  slurm_partition: gpu, slurm_account: richlab, slurm_extra: "--gres='gpu:1' --constraint='gpu_v100|gpu_t4'"}
-  dorado_trim:     {threads: 8,  mem_mb: 3200,  runtime: 120,  slurm_partition: gpu, slurm_account: richlab, slurm_extra: "--gres='gpu:1' --constraint='gpu_v100|gpu_t4'"}
-  medaka_polish:   {threads: 8,  mem_mb: 3200,  runtime: 240,  slurm_partition: gpu, slurm_account: richlab, slurm_extra: "--gres='gpu:1'"}
+  dorado_basecall: {threads: 8,  mem_mb: 3200 ,  runtime: 180,  slurm_partition: gpu, slurm_account: richlab, slurm_extra: "--gres='gpu:1' --constraint='gpu_v100|gpu_t4'"}
+  dorado_demux:    {threads: 8,  mem_mb: 3200 ,  runtime: 120,  slurm_partition: gpu, slurm_account: richlab, slurm_extra: "--gres='gpu:1' --constraint='gpu_v100|gpu_t4'"}
+  dorado_trim:     {threads: 8,  mem_mb: 3200 ,  runtime: 120,  slurm_partition: gpu, slurm_account: richlab, slurm_extra: "--gres='gpu:1' --constraint='gpu_v100|gpu_t4'"}
+  medaka_polish:   {threads: 8,  mem_mb: 32000,  runtime: 240,  slurm_partition: gpu, slurm_account: richlab, slurm_extra: "--gres='gpu:1'"}
 
   fastcat_filter:        {threads: 4,  mem_mb: 8000,  runtime: 60,  partition: batch, account: richlab}
   nanoplot_qc:           {threads: 2,  mem_mb: 4000,  runtime: 30,  partition: batch, account: richlab}
@@ -160,15 +169,25 @@ resources:
   merge_known_unknown:    {threads: 1 , mem_mb: 2000 , runtime: 20 , partition: batch, account: richlab}
   otu_taxonomy_best:      {threads: 1 , mem_mb: 1000 , runtime: 20 , partition: batch, account: richlab}
   apply_taxonomy_filter:  {threads: 1 , mem_mb: 1000 , runtime: 20 , partition: batch, account: richlab}
+
+  pooled_concat_reads:   {threads: 2 , mem_mb: 4000 , runtime: 60 , partition: batch, account: richlab}
+  isonclust3_pooled:     {threads: 16, mem_mb: 64000, runtime: 240, partition: batch, account: richlab}
+  isonclust3:            {threads: 16, mem_mb: 64000, runtime: 240, partition: batch, account: richlab}
+  spoa_consensus_pooled: {threads: 8 , mem_mb: 32000, runtime: 720, partition: batch, account: richlab}
+  spoa_consensus:        {threads: 8,  mem_mb: 32000, runtime: 720, partition: batch, account: richlab}
+
+  align_unknowns_to_backbone: {threads: 8, mem_mb: 8000, runtime: 60, partition: batch, account: richlab}
+  iqtree3_model_extract:  {threads: 1 , mem_mb: 1000 , runtime: 5  ,  partition: batch, account: richlab}
+  epa_place_unknowns:     {threads: 16, mem_mb: 32000, runtime: 180, partition: batch, account: richlab}
+  graft_unknowns_on_tree: {threads: 2 , mem_mb: 2000 , runtime: 15 , partition: batch, account: richlab}
+  sync_exports_for_R:     {threads: 1 , mem_mb: 2000 , runtime: 10 , partition: batch, account: richlab}
   
-  isonclust3:            {threads: 16, mem_mb: 32000, runtime: 240, partition: batch, account: richlab}
-  spoa_consensus:        {threads: 8,  mem_mb: 16000, runtime: 720, partition: batch, account: richlab}
   vsearch_pool_cluster:  {threads: 16, mem_mb: 32000, runtime: 300, partition: batch, account: richlab}
   uniqify_otu_centroids: {threads: 16, mem_mb: 32000, runtime: 240, partition: batch, account: richlab}
   map_all_reads:         {threads: 16, mem_mb: 32000, runtime: 240, partition: batch, account: richlab}
   racon_round1:          {threads: 16, mem_mb: 96000, runtime: 720, partition: batch, account: richlab}
-  map_r1:                {threads: 8,  mem_mb: 16000, runtime: 180, partition: batch, account: richlab}
-  racon_round2:          {threads: 8,  mem_mb: 64000, runtime: 720, partition: batch, account: richlab}
+  map_r1:                {threads: 8,  mem_mb: 24000, runtime: 180, partition: batch, account: richlab}
+  racon_round2:          {threads: 16, mem_mb: 96000, runtime: 720, partition: batch, account: richlab}
   chimera_taxonomy:      {threads: 16, mem_mb: 32000, runtime: 240, partition: batch, account: richlab}
   collapse_ultraclose:   {threads: 8,  mem_mb: 32000, runtime: 240, partition: batch, account: richlab}
   otu_alignment:         {threads: 16, mem_mb: 32000, runtime: 240, partition: batch, account: richlab}
