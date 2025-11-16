@@ -1,22 +1,16 @@
-# 1) Pick a versioned tag (date or git sha)
-TAG=2025-10-11
-IQURL="https://github.com/iqtree/iqtree3/releases/download/v3.0.1/iqtree-3.0.1-Linux.tar.gz"
+TAG=0.2
 
-# 2) Build for the cluster arch (most HCC nodes are x86_64)
-docker build \
-  --platform linux/amd64 \
-  --build-arg IQTREE_URL="$IQURL" \
-  -t aliciamrich/nanomb-cpu:$TAG \
-  -f Dockerfile .
+docker build -t aliciamrich/nanomb:$TAG .
 
-# 3) Push to Docker Hub
-docker push aliciamrich/nanomb-cpu:$TAG
+docker push aliciamrich/nanomb:$TAG
+
+docker run --rm -it aliciamrich/nanomb:$TAG
 
 ------------------------
 
 module load apptainer  
 apptainer pull nanomb.sif \
-  docker://aliciamrich/nanomb-cpu:$TAG
+  docker://aliciamrich/nanomb:$TAG
   
 apptainer exec nanomb.sif \
   bash -lc 'which isONclust3 isonclust3 vsearch mafft iqtree3 NanoPlot python && \

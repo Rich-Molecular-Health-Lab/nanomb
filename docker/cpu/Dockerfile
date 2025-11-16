@@ -42,7 +42,7 @@ COPY --from=iso3build /opt/iso3/bin/isONclust3 /usr/local/bin/isONclust3
 RUN ln -s /usr/local/bin/isONclust3 /usr/local/bin/isonclust3
 
 # --- IQ-TREE (keep bin folder siblings together) ---
-ARG IQTREE_URL
+ARG IQTREE_URL=="https://github.com/iqtree/iqtree3/releases/download/v3.0.1/iqtree-3.0.1-Linux.tar.gz"
 RUN test -n "$IQTREE_URL" || (echo "ERROR: Set --build-arg IQTREE_URL=<download-url>"; exit 1)
 RUN set -euo pipefail; cd /tmp; \
   fname="iqtree.$(basename "$IQTREE_URL")"; \
