@@ -25,6 +25,6 @@ apptainer pull nextflow.sif docker://nextflow/nextflow:25.10.0
 apptainer pull nanomb.sif docker://aliciamrich/nanomb-cpu:2025-10-11
 apptainer pull nanombgpu.sif docker://aliciamrich/nanombgpu:0.2.0-gpu
 apptainer pull nanoalign.sif docker://aliciamrich/nanoalign:cpu
-apptainer pull nanoalign.sif docker://aliciamrich/nanotree:0.5
+apptainer pull nanotree.sif docker://aliciamrich/nanotree:0.5
 
 echo "prepull complete"

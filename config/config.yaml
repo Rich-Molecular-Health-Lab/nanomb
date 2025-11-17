@@ -56,13 +56,11 @@ container_rev:
   gpu: 2025-10-03b
   nanoalign: 2025-10-05
   dorado: 2025-10-05
-  nextflow: 2025-11-08
   tree: 0.5
 container_cpu:       "$PROJ_ROOT/containers/nanomb.sif"
 container_gpu:       "$PROJ_ROOT/containers/nanombgpu.sif"
 container_nanoalign: "$PROJ_ROOT/containers/nanoalign.sif"
 container_dorado:    "$PROJ_ROOT/containers/dorado.sif"
-container_nextflow:   "$PROJ_ROOT/containers/nextflow.sif"
 container_tree:       "$PROJ_ROOT/containers/nanotree.sif"
 
 # --- References ---
@@ -132,6 +130,9 @@ otu_mapping:
   qmask: "none"     # masking method for low-complexity regions
 medaka_batch: 100
 max_medaka_reads: 500000
+epa_ng:
+  mpi_ranks: 1      # set >1 to use MPI build
+  extra: ""         # e.g., "--filter-acc-lwr 0.99" if desired
 
 # --- Optional Ep2ME Labs wf-16s for cross-referencing ---
 wf16s:

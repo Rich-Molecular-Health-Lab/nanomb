@@ -139,14 +139,14 @@ CONTAINERS = {
     "dorado":    _expand(config.get("container_dorado",    "$PROJ_ROOT/containers/dorado.sif")),
 }
 
+TREE_WRAP = "micromamba run -n nanotree"
+
+
 # --- Nextflow wf-16s integration (optional) ---
 
 WF16S_ENABLE = bool(config.get("wf16s", {}).get("enable", False))
 WF16S_OUTDIR = config.get("wf16s", {}).get("out_dir") or os.path.join(OUT, "wf16s")
 WF16S_WORK   = config.get("wf16s", {}).get("work_dir") or os.path.join(TMP, "wf16s_work")
-
-CONTAINERS["nextflow"] = _expand(config.get("container_nextflow", "")) or CONTAINERS["cpu"]
-
 
 # ---- wildcardable string templates (no callables) ----
 BASECALL_DIR_T   = resolve_path(OUT_ROOT, LAYOUT["basecall_dir"],
@@ -311,6 +311,13 @@ _final_targets = tuple(_final_targets) + (
     OTU_TAX_BEST,
     OTU_TABLE_ALL,
     OTU_TABLE_FINAL,
+    
+    os.path.join(OUT, "otu", "otu_table_final.synced.tsv"),
+    os.path.join(OUT, "otu", "otu_refseq.synced.fasta"),
+    os.path.join(OUT, "otu", "otu_tree.synced.nwk"),
+    os.path.join(OUT, "otu", "unknowns_aligned.fasta"),
+    os.path.join(OUT, "otu", "unknowns.placements.jplace"),
+    os.path.join(OUT, "otu", "otu_tree.with_unknowns.nwk"),
 )
 
 if WF16S_ENABLE:
@@ -326,14 +333,10 @@ rule preflight:
     run:
         if not input.db or not os.path.exists(input.db) or os.path.getsize(input.db) == 0:
             raise WorkflowError(f"SINTAX DB missing/empty: {input.db!r}")
-
         if not ITGDB_FASTA or not os.path.exists(ITGDB_FASTA) or os.path.getsize(ITGDB_FASTA) == 0:
             raise WorkflowError(f"itgdb reference missing/empty: {ITGDB_FASTA!r}")
-
-        must_have = ("cpu","gpu","nanoalign","dorado", "tree")
-        for k in must_have:
-            img = CONTAINERS.get(k, "")
-            if not img:
+        for k in ("cpu","gpu","nanoalign","dorado","tree"):
+            if not CONTAINERS.get(k, ""):
                 raise WorkflowError(f"Container path/URI for '{k}' not set.")
               
 rule manifest:
@@ -472,15 +475,6 @@ checkpoint demux_index_one_run:
       done
     """
 
-rule demux_index_all:
-    input: [demux_index_path_for_run(r) for r in RUNS]
-    output: tsv = os.path.join(TMP, "demux_index.tsv")
-    container: CONTAINERS["cpu"]
-    shell: r"""
-      set -euo pipefail
-      cat {input} | awk 'NR==1 || FNR>1' > {output.tsv}
-    """
-
 # --- helper functions that resolve AFTER the checkpoint completes ---
 def _samples_for_run_after_demux(wc):
     import csv as _csv
@@ -599,7 +593,8 @@ rule fastcat_filter:
         fastq   = directory(os.path.join(TMP, "filtered")),
         filesum = os.path.join(OUT, "qc", "fastcat_file_summary.tsv"),
         readsum = os.path.join(OUT, "qc", "fastcat_read_summary.tsv"),
-        done    = touch(os.path.join(TMP, "filtered", ".fastcat_filter.done"))
+        done    = touch(os.path.join(TMP, "filtered", ".fastcat_filter.done")),
+        files_manifest = os.path.join(OUT, "qc", "filtered_manifest.txt")
     threads: Rq("fastcat_filter", "threads")
     resources:
         mem_mb   = Rq("fastcat_filter", "mem_mb"),
@@ -658,13 +653,13 @@ rule fastcat_filter:
         : > {output.filesum}
         : > {output.readsum}
       fi
+      printf "%s\n" {output.fastq}/*.fastq {output.fastq}/*.fastq.gz \
+      | sed 's://:/:g' | sort -u > {output.files_manifest}
     """
     
 rule nanoplot_qc:
     input:
-        filt_dir = rules.fastcat_filter.output.fastq,
-        filesum  = rules.fastcat_filter.output.filesum,
-        readsum  = rules.fastcat_filter.output.readsum
+        done  = rules.fastcat_filter.output.done
     output:
         outdir = directory(os.path.join(OUT, "qc/nanoplot")),
         done   = touch(os.path.join(OUT, "qc/nanoplot", ".done"))
@@ -676,6 +671,7 @@ rule nanoplot_qc:
         account  = Rq("nanoplot_qc", "account"),
         extra    = R("nanoplot_qc", "extra")
     params:
+        filt_dir = directory(os.path.join(TMP, "filtered")),
         maxlen = lambda wc: config["maxlength"],
         minlen = lambda wc: config["minlength"],
         container_rev = lambda wc: config["container_rev"].get("cpu","0")
@@ -683,7 +679,7 @@ rule nanoplot_qc:
     shell: r"""
       set -euo pipefail
       mkdir -p {output.outdir}
-      cat {input.filt_dir}/*.fastq > {output.outdir}/all.fastq
+      cat {params.filt_dir}/*.fastq > {output.outdir}/all.fastq
       NanoPlot --fastq {output.outdir}/all.fastq -o {output.outdir} --drop_outliers \
         --maxlength {params.maxlen} --minlength {params.minlen}
       : > {output.done}
@@ -693,8 +689,7 @@ rule nanoplot_qc:
 
 rule stage_wf16s_input:
     input:
-        filt_done = rules.fastcat_filter.output.done,
-        filt_dir  = rules.fastcat_filter.output.fastq
+        filt_done = rules.fastcat_filter.output.done
     output:
         indir = directory(PATH_T["dset"]["wf16s_in"]),
         done  = touch(os.path.join(PATH_T["dset"]["wf16s_in"], ".staged.ok"))
@@ -706,12 +701,13 @@ rule stage_wf16s_input:
         account  = Rq("stage_wf16s_input", "account"),
         extra    =  R("stage_wf16s_input", "extra") 
     params:
+        filt_dir = directory(os.path.join(TMP, "filtered")),
         drop_after = lambda wc: (config.get("names", {}) or {}).get("drop_after", "__"),
         container_rev = lambda wc: config["container_rev"].get("cpu","0")
     container: CONTAINERS["cpu"]
     run:
         import os, glob, shutil, sys
-        in_dir  = input.filt_dir
+        in_dir  = params.filt_dir
         out_dir = output.indir
         token   = params.drop_after
 
@@ -887,16 +883,11 @@ rule itgdb_taxmap:
       """
       
 def paf_targets(wc):
-    import glob, os
-    fq_dir = rules.fastcat_filter.output.fastq
-    fqs = sorted(glob.glob(os.path.join(fq_dir, "*.fastq")) +
-                 glob.glob(os.path.join(fq_dir, "*.fastq.gz")))
-    stems = [os.path.basename(f).replace(".fastq.gz","").replace(".fastq","") for f in fqs]
-    return expand(os.path.join(OUT, "itgdb", "{sid}.paf"), sid=stems)
+    stems = _filtered_stems_from_manifest()
+    return [os.path.join(OUT, "itgdb", f"{s}.paf") for s in stems]
 
 rule itgdb_map_reads:
     input:
-        reads = rules.fastcat_filter.output.fastq,
         filt_done = rules.fastcat_filter.output.done,
         idx   = rules.itgdb_index.output.mmi
     output:
@@ -910,6 +901,7 @@ rule itgdb_map_reads:
         extra     =  R("itgdb_map_reads", "extra"),
     container: CONTAINERS["nanoalign"]
     params:
+        reads   = directory(os.path.join(TMP, "filtered")),
         preset  = config.get("itgdb_minimap", {}).get("preset", "map-ont"),
         prim    = "--secondary=no -N 1" if config.get("itgdb_minimap", {}).get("primary_only", True) else "",
         container_rev = lambda wc: config["container_rev"].get("nanoalign","0")
@@ -919,7 +911,7 @@ rule itgdb_map_reads:
       mkdir -p "$paf_dir"
       shopt -s nullglob
 
-      for fq in "{input.reads}"/*.fastq "{input.reads}"/*.fastq.gz; do
+      for fq in "{params.reads}"/*.fastq "{params.reads}"/*.fastq.gz; do
         [ -e "$fq" ] || continue
         bn=$(basename "$fq")
         sid="${{bn%.fastq.gz}}"; sid="${{sid%.fastq}}"
@@ -977,12 +969,15 @@ def _paf_for_stem(wc):
     import os
     return os.path.join(OUT, "itgdb", f"{wc.stem}.paf")
 
-def _filtered_stems():
-    import glob, os
-    d = rules.fastcat_filter.output.fastq
-    fqs = sorted(glob.glob(os.path.join(d, "*.fastq")) +
-                 glob.glob(os.path.join(d, "*.fastq.gz")))
-    return [os.path.basename(f).replace(".fastq.gz","").replace(".fastq","") for f in fqs]
+def _filtered_stems_from_manifest():
+    stems = []
+    with open(rules.fastcat_filter.output.files_manifest) as fh:
+        for line in fh:
+            fn = line.strip()
+            if not fn: continue
+            bn = os.path.basename(fn)
+            stems.append(bn.replace(".fastq.gz","").replace(".fastq",""))
+    return sorted(set(stems))
 
 rule unknown_extract_p_samp:
     input:
@@ -1095,15 +1090,14 @@ PY
 def _unknown_pool_inputs(wc):
     from snakemake.io import expand
     return expand(os.path.join(UNKNOWN_DIR, "{stem}.unknown.fastq.sub.fastq"),
-                  stem=_filtered_stems())
+                  stem=_filtered_stems_from_manifest())
 
 # 2.4 pool all subsampled unknowns (now driven by the fan-out)
 rule unknown_pool:
     input:
-        pool = _unknown_pool_inputs,
-        done = rules.itgdb_map_reads.output.done 
+        pool = _unknown_pool_inputs
     output:
-        pool = temp(os.path.join(UNKNOWN_DIR, "unknown_pool.fastq"))
+        pool = os.path.join(UNKNOWN_DIR, "unknown_pool.fastq")
     threads:   Rq("unknown_pool", "threads")
     resources:
         mem_mb    = Rq("unknown_pool", "mem_mb"),
@@ -1168,9 +1162,9 @@ rule unknown_cluster:
     """
     
 def list_unknown_subs(_wc=None):
-    import glob, os
-    return sorted(glob.glob(os.path.join(UNKNOWN_DIR, "*.unknown.fastq.sub.fastq")))
-
+    stems = _filtered_stems_from_manifest()
+    return [os.path.join(UNKNOWN_DIR, f"{s}.unknown.fastq.sub.fastq") for s in stems]
+  
 rule unknown_tbl_per_samp:
     input:
         refs = rules.unknown_cluster.output.cent_filt,
@@ -1189,76 +1183,109 @@ rule unknown_tbl_per_samp:
         id    = lambda wc: float(config.get("unknowns", {}).get("id", 0.70)),
         iddef = lambda wc: int(config.get("unknowns", {}).get("iddef", 1)),
         container_rev = lambda wc: config["container_rev"].get("cpu","0")
+    log: os.path.join(OUT, "logs/unknown_tbl_per_samp.log")
     container: CONTAINERS["cpu"]
-    run:
-        import glob, os, csv, subprocess, shlex
+    shell: r"""
+      set -euo pipefail
+      mkdir -p "{params.dir}" "$(dirname "{output.merged}")" "$(dirname "{log}")"
+      exec > "{log}" 2>&1
+      echo "[unknown_tbl_per_samp] threads={threads} id={params.id} iddef={params.iddef}"
 
-        refs = input.refs
-        subs = list(input.subs)
-        out = output.merged
-        tdir = params.dir
-        os.makedirs(tdir, exist_ok=True)
+      command -v vsearch >/dev/null || {{ echo "vsearch not found"; exit 127; }}
 
-        # If no unknown refs, emit empty table
-        if (not os.path.exists(refs)) or (os.path.getsize(refs) == 0):
-            with open(out, "w", newline="") as fh:
-                csv.writer(fh, delimiter="\t").writerow(["OTU"])
-            return
+      if [ ! -s "{input.refs}" ]; then
+        echo "[unknown_tbl_per_samp] No reference centroids after filtering; writing empty table."
+        printf "OTU\n" > "{output.merged}"
+        exit 0
+      fi
 
-        # Generate per-sample tables
-        made = []
-        for f in subs:
-            if not os.path.exists(f) or os.path.getsize(f) == 0:
-                continue
-            sid = os.path.basename(f).replace(".unknown.fastq.sub.fastq","")
-            tab = os.path.join(tdir, f"otu_unknown_{sid}.tsv")
-            cmd = f'vsearch --usearch_global {shlex.quote(f)} --db {shlex.quote(refs)} ' \
-                  f'--id {params.id} --iddef {params.iddef} --strand both --qmask none ' \
-                  f'--otutabout {shlex.quote(tab)} --threads {threads}'
-            subprocess.run(cmd, shell=True, check=True)
-            if os.path.exists(tab) and os.path.getsize(tab) > 0:
-                made.append(tab)
+      shopt -s nullglob
+      subs=( {input.subs} )
+      nonempty_subs=()
+      for f in "${{subs[@]:-}}"; do
+        if [ -s "$f" ]; then nonempty_subs+=( "$f" ); fi
+      done
 
-        if not made:
-            with open(out, "w", newline="") as fh:
-                csv.writer(fh, delimiter="\t").writerow(["OTU"])
-            return
+      if (( ${{#nonempty_subs[@]}} == 0 )); then
+        echo "[unknown_tbl_per_samp] No non-empty unknown subs; writing empty table."
+        printf "OTU\n" > "{output.merged}"
+        exit 0
+      fi
 
-        # read all per-sample tables into dict-of-dicts
-        sample_names = []
-        data = {} 
-        for tab in sorted(made):
-            sid = os.path.basename(tab)
-            if sid.startswith("otu_unknown_"): sid = sid[len("otu_unknown_"):]
-            if sid.endswith(".tsv"): sid = sid[:-4]
-            sample_names.append(sid)
+      made=()
+      for f in "${{nonempty_subs[@]}}"; do
+        bn=$(basename "$f")
+        sid="${{bn%.unknown.fastq.sub.fastq}}"
+        tab="{params.dir}/otu_unknown_${{sid}}.tsv"
+        echo "[unknown_tbl_per_samp] Running vsearch for $bn -> $tab"
+        vsearch --usearch_global "$f" \
+                --db "{input.refs}" \
+                --id {params.id} --iddef {params.iddef} \
+                --strand both --qmask none \
+                --otutabout "$tab" \
+                --threads {threads}
+        if [ -s "$tab" ]; then
+          made+=( "$tab" )
+        else
+          echo "[unknown_tbl_per_samp] WARNING: empty table for $sid"
+        fi
+      done
 
-            with open(tab, newline="") as fh:
-                r = csv.reader(fh, delimiter="\t")
-                header = next(r, None)
-                for row in r:
-                    if not row: continue
-                    if row[0].startswith("#"): continue
-                    if row[0].upper() in ("OTU","OTUID","OTU_ID","OTUID"): continue
-                    otu = row[0]
-                    val = 0
-                    for x in row[1:]:
-                        try:
-                            s = str(x).strip()
-                            if s and s.upper() != "NA":
-                                val += int(float(s))
-                        except Exception:
-                            pass
-                    data.setdefault(otu, {})
-                    data[otu][sid] = data[otu].get(sid, 0) + val
+      if (( ${{#made[@]}} == 0 )); then
+        echo "[unknown_tbl_per_samp] No non-empty per-sample tables; writing empty merged table."
+        printf "OTU\n" > "{output.merged}"
+        exit 0
+      fi
 
-        # write merged table
-        with open(out, "w", newline="") as fh:
-            w = csv.writer(fh, delimiter="\t")
-            w.writerow(["OTU"] + sample_names)
-            for otu in sorted(data.keys()):
-                w.writerow([otu] + [data[otu].get(s, 0) for s in sample_names])
-                
+      echo "[unknown_tbl_per_samp] Merging ${{#made[@]}} tables into {output.merged}"
+
+      awk -v OFS='\t' '
+        BEGIN {{
+          for (i=1; i<ARGC; i++) {{
+            fn = ARGV[i]
+            gsub(/^.*\//,"",fn)
+            gsub(/^otu_unknown_/,"",fn)
+            sub(/\.tsv$/,"",fn)
+            sample[i]=fn
+          }}
+        }}
+        FNR==1 {{ next }}
+        /^#/ {{ next }}
+        NF==0 {{ next }}
+        {{
+          otu=$1
+          sum=0
+          for (j=2; j<=NF; j++) {{
+            s=$j
+            if (s!="NA" && s!="") {{
+              if (s+0 == s) sum += int(s+0)
+            }}
+          }}
+          key = FILENAME
+          data[otu, key] += sum
+          otus[otu] = 1
+        }}
+        END {{
+          printf "OTU"
+          for (i=1; i<ARGC; i++) printf OFS "%s", sample[i]
+          print ""
+    
+          n = asorti(otus, O)
+          for (k=1; k<=n; k++) {{
+            o = O[k]
+            printf "%s", o
+            for (i=1; i<ARGC; i++) {{
+              v = data[o, ARGV[i]] + 0
+              printf OFS "%d", v
+            }}
+            print ""
+          }}
+        }}
+      ' "${{made[@]}}" > "{output.merged}"
+
+      echo "[unknown_tbl_per_samp] Done. Rows: $(($(wc -l < "{output.merged}") - 1))  Samples: ${{#made[@]}}"
+    """
+
 rule itgdb_species_tables:
     input:
         done   = rules.itgdb_map_reads.output.done, 
@@ -1458,7 +1485,7 @@ PY
 
 rule pooled_concat_reads:
     input:
-        reads = rules.fastcat_filter.output.fastq
+        reads = rules.fastcat_filter.output.done
     output:
         pooled = POOLED_FQ
     threads: Rq("pooled_concat_reads", "threads")
@@ -1470,6 +1497,7 @@ rule pooled_concat_reads:
         extra     =  R("pooled_concat_reads", "extra"),
     log: os.path.join(OUT, "logs/pooled_concat_reads.log")
     params:
+        reads = directory(os.path.join(TMP, "filtered")),
         container_rev = lambda wc: config["container_rev"].get("cpu","0")
     container: CONTAINERS["cpu"]
     shell: r"""
@@ -1477,7 +1505,7 @@ rule pooled_concat_reads:
       mkdir -p "$(dirname "{output.pooled}")"
       : > "{output.pooled}"
       shopt -s nullglob
-      for fq in "{input.reads}"/*.fastq "{input.reads}"/*.fastq.gz; do
+      for fq in "{params.reads}"/*.fastq "{params.reads}"/*.fastq.gz; do
         [ -e "$fq" ] || continue
         if [[ "$fq" == *.gz ]]; then gzip -dc "$fq" >> "{output.pooled}"; else cat "$fq" >> "{output.pooled}"; fi
       done
@@ -1528,7 +1556,6 @@ rule isonclust3_pooled:
     
 rule spoa_consensus_pooled:
     input: 
-        pooled = rules.isonclust3_pooled.output.pooled,
         done   = rules.isonclust3_pooled.output.done
     output:
         done = os.path.join(POOLED_CONS_DIR, ".done")
@@ -1542,6 +1569,7 @@ rule spoa_consensus_pooled:
     log: os.path.join(OUT, "logs/spoa_consensus_pooled.log")
     params:
         outdir     = POOLED_CONS_DIR,
+        pooled     = directory(POOLED_OTU_DIR),
         max_reads  = int(config.get("spoa_max_reads", 500)),
         min_reads  = int(config.get("spoa_min_reads", 3)),
         extra      = lambda wc: config.get("spoa_extra",""),
@@ -1553,7 +1581,7 @@ rule spoa_consensus_pooled:
       exec > "{log}" 2>&1
 
       shopt -s nullglob
-      mapfile -t fq_list < <(find "{input.pooled}" -type f -path "*/clustering/fastq_files/*.fastq" | sort)
+      mapfile -t fq_list < <(find "{params.pooled}" -type f -path "*/clustering/fastq_files/*.fastq" | sort)
 
       for fq in "${{fq_list[@]}}"; do
         sample=$(basename "$(dirname "$(dirname "$fq")")")
@@ -1586,8 +1614,10 @@ rule spoa_consensus_pooled:
     """
     
 rule isonclust3:
-    input: rules.fastcat_filter.output.fastq
-    output: directory(os.path.join(TMP, "OTUs"))
+    input: rules.fastcat_filter.output.done
+    output: 
+      done = os.path.join(TMP, "OTUs", ".isonclust3.done"),
+      outdir = directory(os.path.join(TMP, "OTUs"))
     threads: Rq("isonclust3", "threads")
     resources:
         mem_mb   = Rq("isonclust3", "mem_mb"), 
@@ -1597,6 +1627,7 @@ rule isonclust3:
         extra    =  R("isonclust3", "extra"),
     log: os.path.join(OUT, "logs/isonclust3.log")
     params:
+        reads = directory(os.path.join(TMP, "filtered")),
         container_rev = lambda wc: config["container_rev"].get("cpu","0"),
         extra = lambda wc: config.get("isonclust3_extra","") 
     container: CONTAINERS["cpu"]
@@ -1605,13 +1636,13 @@ rule isonclust3:
       exec > "{log}" 2>&1
       set -x
       
-      mkdir -p "{output}"
-      find "{output}" -mindepth 1 -maxdepth 1 -exec rm -rf {{}} + || true
+      mkdir -p "{output.outdir}"
+      find "{output.outdir}" -mindepth 1 -maxdepth 1 -exec rm -rf {{}} + || true
 
       shopt -s nullglob
-      for fq in {input}/*.fastq; do
+      for fq in {params.reads}/*.fastq; do
         samp=$(basename "$fq" .fastq)
-        outdir="{output}/${{samp}}"
+        outdir="{output.outdir}/${{samp}}"
         mkdir -p "$outdir"
         
         [[ -s "$fq" ]] || {{ echo "skip $fq (empty)"; continue; }}
@@ -1625,10 +1656,11 @@ rule isonclust3:
           --post-cluster \
           --verbose {params.extra}
       done
+      : > "{output.done}"
     """
 
 rule spoa_consensus:
-    input: rules.isonclust3.output
+    input: rules.isonclust3.output.done
     output:
         done = touch(os.path.join(TMP, "consensus_drafts/.done"))
     threads: Rq("spoa_consensus", "threads")
@@ -1639,6 +1671,7 @@ rule spoa_consensus:
         account  = Rq("spoa_consensus", "account"),
         extra    =  R("spoa_consensus", "extra") 
     params:
+        indir      = directory(os.path.join(TMP, "OTUs")),
         outdir     = os.path.join(TMP, "consensus_drafts"),
         max_reads  = int(config.get("spoa_max_reads", 500)),
         min_reads  = int(config.get("spoa_min_reads", 3)),
@@ -1652,7 +1685,7 @@ rule spoa_consensus:
       exec > "{log}" 2>&1
       
       shopt -s nullglob
-      mapfile -t fq_list < <(find "{input}" -type f -path "*/clustering/fastq_files/*.fastq" | sort)
+      mapfile -t fq_list < <(find "{params.indir}" -type f -path "*/clustering/fastq_files/*.fastq" | sort)
       
       for fq in "${{fq_list[@]}}"; do
         sample=$(basename "$(dirname "$(dirname "$fq")")")
@@ -1799,7 +1832,7 @@ rule uniqify_otu_centroids:
 
 rule map_all_reads:
     input:
-        reads = rules.fastcat_filter.output.fastq,        
+        done = rules.fastcat_filter.output.done,        
         refs  = rules.uniqify_otu_centroids.output.cent97_uniq 
     output:
         all_reads = ALL_READS_FQ,   
@@ -1813,6 +1846,7 @@ rule map_all_reads:
         extra    = R("map_all_reads", "extra")
     log: os.path.join(OUT, "logs/map_all_reads.log")
     params:
+        reads = directory(os.path.join(TMP, "filtered")),
         container_rev = lambda wc: config["container_rev"].get("nanoalign","0")
     container: CONTAINERS["nanoalign"]
     shell: r"""
@@ -1826,7 +1860,7 @@ rule map_all_reads:
       trap 'rm -f "$tmp_raw" "$tmp_clean"' EXIT
       
       shopt -s nullglob
-      mapfile -d '' -t FQS < <(find "{input.reads}" -maxdepth 1 -type f \
+      mapfile -d '' -t FQS < <(find "{params.reads}" -maxdepth 1 -type f \
          \( -name '*.fastq' -o -name '*.fastq.gz' \) -print0 | sort -z)
 
       : > "$tmp_raw"
@@ -1874,7 +1908,7 @@ rule racon_round1:
     input: 
       reads = rules.map_all_reads.output.all_reads, 
       bam   = rules.map_all_reads.output.bam, 
-      refs  = rules.uniqify_otu_centroids.output.cent99_uniq 
+      refs  = rules.uniqify_otu_centroids.output.cent97_uniq 
     output: 
       r1 = R1_FASTA
     threads: Rq("racon_round1", "threads")
@@ -2228,12 +2262,15 @@ rule otu_alignment:
         account   = Rq("otu_alignment", "account"),
         extra     = R( "otu_alignment", "extra")
     params:
-        container_rev = lambda wc: config["container_rev"].get("tree","0")
+        container_rev = lambda wc: config["container_rev"].get("tree","0"),
+        wrap          = lambda wc: TREE_WRAP
     container: CONTAINERS["tree"]
     shell: r"""
       set -euo pipefail
-      command -v mafft >/dev/null || {{ echo "mafft not found"; exit 127; }}
-      mafft --auto --thread {threads} "{input.fasta}" > "{output.msa}"
+      
+      {params.wrap} which mafft >/dev/null || {{ echo "mafft not found in nanotree env"; exit 127; }}
+      {params.wrap} mafft --auto --thread {threads} "{input.fasta}" > "{output.msa}"
+   
     """
 
 
@@ -2243,6 +2280,7 @@ rule iqtree3_tree:
         msa = rules.otu_alignment.output.msa
     output:
         tree = os.path.join(OUT, "otu/otu_tree.treefile"),
+        iq   = os.path.join(OUT, "otu/otu_tree.iqtree"),
         done =  touch(os.path.join(OUT, "otu", ".tree.done"))
     threads: Rq("iqtree3_tree", "threads")
     resources:
@@ -2282,6 +2320,7 @@ rule iqtree3_tree:
       fi
     
       test -s "{output.tree}"
+      test -s "{output.iq}"
       : > {output.done}
     """
     
@@ -2289,7 +2328,6 @@ rule iqtree3_tree:
 rule otu_table_per_sample:
     input:
         refs  = rules.collapse_ultraclose.output.fasta,
-        reads = rules.fastcat_filter.output.fastq,
         deps_done = rules.fastcat_filter.output.done
     output:
         merged = os.path.join(OUT, "otu/otu_table_merged.tsv")
@@ -2301,6 +2339,7 @@ rule otu_table_per_sample:
         account   = Rq("otu_table_per_sample", "account"),
         extra     = R("otu_table_per_sample", "extra")
     params:
+        reads         = directory(os.path.join(TMP, "filtered")),
         container_rev = lambda wc: config["container_rev"].get("cpu","0"),
         map_id        = lambda wc: float(config.get("map_id", 0.90)),
         strand        = lambda wc: config.get("strand", "both"),
@@ -2321,7 +2360,7 @@ rule otu_table_per_sample:
       
       [[ {params.qcov} == 0.0 ]] && echo "warning: qcov=0 disables coverage filtering" >&2
 
-      for fq in "{input.reads}"/*.fastq; do
+      for fq in "{params.reads}"/*.fastq; do
         sid=$(basename "$fq" .fastq)
         vsearch --usearch_global "$fq" \
                 --db "{input.refs}" \
@@ -2441,16 +2480,24 @@ rule merge_known_unknown:
             if s not in all_samples: all_samples.append(s)
 
         # maps
-        def build_map(rows):
+        def build_map(rows, header_samples):
+            col_samples = header_samples[:]  # exact order from that file
             m = {}
             for r in rows:
                 if not r: continue
-                m[r[0]] = { s:int(v) if (v and v!='NA') else 0 for s, v in zip(all_samples, r[1:] + [0]*(len(all_samples)-len(r)+1)) }
+                otu, vals = r[0], r[1:]
+                m[otu] = { s:int(float(v)) if (v and v != 'NA') else 0
+                           for s, v in zip(col_samples, vals) }
             return m
-
-        km = build_map(k_rows)
-        um = build_map(u_rows)
-
+        
+        k_header, *k_rows = K
+        u_header, *u_rows = U
+        k_samples = k_header[1:]
+        u_samples = u_header[1:]
+        all_samples = list(dict.fromkeys(k_samples + u_samples))
+        
+        km = build_map(k_rows, k_samples)
+        um = build_map(u_rows, u_samples)
         # merge
         otus = sorted(set(km.keys()) | set(um.keys()))
         with open(out, "w", newline="") as fh:
@@ -2462,7 +2509,7 @@ rule merge_known_unknown:
 
 rule apply_taxonomy_filter:
     input:
-        table = rules.merge_known_unknown.output.merged,            # counts with unknowns
+        table = rules.merge_known_unknown.output.merged,          
         tax   = rules.otu_taxonomy_best.output.tax
     output:
         final = OTU_TABLE_FINAL
@@ -2503,11 +2550,10 @@ rule apply_taxonomy_filter:
                 if enable and otu in to_drop:
                     continue
                 w.writerow(row)
-
     
 rule iqtree3_model_extract:
     input:
-        iq = os.path.join(OUT, "otu/otu_tree.iqtree")
+        iq = rules.iqtree3_tree.output.iq
     output:
         model = os.path.join(OUT, "otu/otu_tree.model.txt")
     threads: Rq("iqtree3_model_extract", "threads")
@@ -2531,8 +2577,8 @@ rule iqtree3_model_extract:
             
 rule align_unknowns_to_backbone:
     input:
-        backbone = os.path.join(OUT, "otu/otu_references_aligned.fasta"),
-        unk      = UNKNOWN_CENT_FILT,
+        backbone = rules.otu_alignment.output.msa,
+        unk      = rules.unknown_cluster.output.cent_filt,
         done     = rules.unknown_cluster.output.done
     output:
         q_aln = os.path.join(OUT, "otu/unknowns_aligned.fasta")
@@ -2544,6 +2590,8 @@ rule align_unknowns_to_backbone:
         account   = Rq("align_unknowns_to_backbone", "account"),
         extra     = R( "align_unknowns_to_backbone", "extra")
     log: os.path.join(OUT, "logs/align_unknowns_to_backbone.log")
+    params:
+        wrap = lambda wc: TREE_WRAP
     container: CONTAINERS["tree"]
     shell: r"""
       set -euo pipefail
@@ -2551,14 +2599,14 @@ rule align_unknowns_to_backbone:
         : > "{output.q_aln}"
         exit 0
       fi
-      command -v mafft >/dev/null || {{ echo "mafft not found"; exit 127; }}
-      mafft --addfragments "{input.unk}" --keeplength --reorder --thread {threads} "{input.backbone}" > "{output.q_aln}"
+      {params.wrap} which mafft >/dev/null || {{ echo "mafft not found in nanotree env"; exit 127; }}
+      {params.wrap} mafft --addfragments "{input.unk}" --keeplength --reorder --thread {threads} "{input.backbone}" > "{output.q_aln}"
     """
     
 rule epa_place_unknowns:
     input:
-        backbone_msa = os.path.join(OUT, "otu/otu_references_aligned.fasta"),
-        backbone_tree = os.path.join(OUT, "otu/otu_tree.treefile"),
+        backbone_msa = rules.otu_alignment.output.msa,
+        backbone_tree = rules.iqtree3_tree.output.tree,
         q_aln = rules.align_unknowns_to_backbone.output.q_aln,
         model = rules.iqtree3_model_extract.output.model
     output:
@@ -2570,32 +2618,54 @@ rule epa_place_unknowns:
         partition = Rq("epa_place_unknowns", "partition"),
         account   = Rq("epa_place_unknowns", "account"),
         extra     = R( "epa_place_unknowns", "extra")
+    params:
+        mpi_ranks     = lambda wc: int(config.get("epa_ng", {}).get("mpi_ranks", 1)),
+        wrap          = lambda wc: TREE_WRAP,
+        extra         = lambda wc: config.get("epa_ng", {}).get("extra", ""),
+        container_rev = lambda wc: config["container_rev"].get("tree","0")
     log: os.path.join(OUT, "logs/epa_place_unknowns.log")
     container: CONTAINERS["tree"]
-    params:
-        extra = ""  
     shell: r"""
       set -euo pipefail
+      exec > "{log}" 2>&1
+      
+      export CONDA_PREFIX=/opt/conda/envs/nanotree
+      export PATH="$CONDA_PREFIX/bin:/opt/conda/bin:$PATH"
+      
+      mkdir -p "$(dirname "{output.jplace}")"
+      
       if ! grep -q '^>' "{input.q_aln}"; then
         echo '{{"tree": "", "placements": []}}' > "{output.jplace}"
         exit 0
       fi
+      
       command -v epa-ng >/dev/null || {{ echo "epa-ng not found"; exit 127; }}
-      mdl=$(cat "{input.model}" | tr -d '\n\r')
+
+      mdl="$(tr -d '\n\r' < "{input.model}")"
+      if [ -z "${{mdl}}" ]; then
+        echo "[epa] model file {input.model} is empty" >&2
+        exit 2
+      fi
+      
+      outdir="$(dirname "{output.jplace}")/epa_tmp"
+      rm -rf "$outdir"; mkdir -p "$outdir"
+
       epa-ng \
-        --ref-msa "{input.backbone_msa}" \
-        --tree    "{input.backbone_tree}" \
-        --query   "{input.q_aln}" \
-        --model   "$mdl" \
-        --threads {threads} {params.extra} \
-        --outdir  "$(dirname "{output.jplace}")"/epa_tmp
-      mv -f "$(dirname "{output.jplace}")"/epa_tmp/epa_result.jplace "{output.jplace}"
-      rm -rf "$(dirname "{output.jplace}")"/epa_tmp || true
+         --ref-msa "{input.backbone_msa}" \
+         --tree    "{input.backbone_tree}" \
+         --query   "{input.q_aln}" \
+         --model   "$mdl" \
+         --threads {threads} {params.extra} \
+         --outdir  "$outdir"
+         
+       mv -f "$outdir/epa_result.jplace" "{output.jplace}"
+       rm -rf "$outdir" || true
+
     """
     
 rule graft_unknowns_on_tree:
     input:
-        tree   = os.path.join(OUT, "otu/otu_tree.treefile"),
+        tree   = rules.iqtree3_tree.output.tree,
         jplace = rules.epa_place_unknowns.output.jplace
     output:
         tree_grafted = os.path.join(OUT, "otu/otu_tree.with_unknowns.nwk")
@@ -2607,15 +2677,15 @@ rule graft_unknowns_on_tree:
         account   = Rq("graft_unknowns_on_tree", "account"),
         extra     = R( "graft_unknowns_on_tree", "extra")
     log: os.path.join(OUT, "logs/graft_unknowns_on_tree.log")
+    params:
+        wrap          = lambda wc: TREE_WRAP
     container: CONTAINERS["tree"]
     shell: r"""
       set -euo pipefail
-      if ! command -v gappa >/dev/null; then
-        echo "gappa not found" >&2; exit 127
-      fi
+      {params.wrap} which gappa >/dev/null || {{ echo "gappa not found in nanotree env"; exit 127; }}
       outdir="$(dirname "{output.tree_grafted}")/gappa_out"
       rm -rf "$outdir"
-      gappa graft \
+      {params.wrap} gappa graft \
         --jplace "{input.jplace}" \
         --reference-tree "{input.tree}" \
         --out-dir "$outdir" \
@@ -2626,10 +2696,10 @@ rule graft_unknowns_on_tree:
                 
 rule sync_exports_for_R:
     input:
-        table = os.path.join(OUT, "otu/otu_table_final.tsv"),
-        tax   = os.path.join(OUT, "otu/otu_taxonomy_best.tsv"),
-        fasta_known = os.path.join(OUT, "otu/otus_ultraclose_merged.fasta"),
-        fasta_unknown = UNKNOWN_CENT_FILT,
+        table = rules.apply_taxonomy_filter.output.final,
+        tax   = rules.otu_taxonomy_best.output.tax,
+        fasta_known = rules.collapse_ultraclose.output.fasta,
+        fasta_unknown = rules.unknown_cluster.output.cent_filt,
         tree = rules.graft_unknowns_on_tree.output.tree_grafted
     output:
         table_sync = os.path.join(OUT, "otu/otu_table_final.synced.tsv"),

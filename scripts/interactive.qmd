@@ -1,0 +1,57 @@
+---
+title: "Useful Commands for Troubleshooting via Interactive Jobs"
+format: html
+---
+
+
+```{bash}
+srun --job-name=epa --mem=8gb --nodes=1 --ntasks-per-node=4 --time=1:00:00 --pty $SHELL
+```
+
+```{bash}
+cd /mnt/nrdstor/richlab/shared/nanomb
+```
+
+```{bash}
+module load anaconda
+conda activate "$NRDSTOR/snakemake"
+```
+
+```{bash}
+source profiles/hcc/env_setup.sh
+```
+
+
+```{bash}
+snakemake --cleanup-metadata /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/qc/nanoplot
+snakemake --cleanup-metadata /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in 
+snakemake --cleanup-metadata /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/wf16s_in/.staged.ok
+```
+
+
+```{bash}
+snakemake --profile profiles/hcc --touch all
+```
+
+
+```{bash}
+snakemake --profile profiles/hcc -n   /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/otu/unknowns.placements.jplace
+```
+
+```{bash}
+# Show what looks stale and why for the specific target
+snakemake --detailed-summary unknown_pool
+
+# List what would rerun due to changed inputs/params
+snakemake --list-input-changes
+snakemake --list-params-changes
+```
+
+```{bash}
+snakemake --profile profiles/hcc \
+  --rerun-triggers code input mtime params software-env \
+  /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/otu/unknowns.placements.jplace
+```
+
+
+
