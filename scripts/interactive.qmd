@@ -3,22 +3,21 @@ title: "Useful Commands for Troubleshooting via Interactive Jobs"
 format: html
 ---
 
-
-```{bash}
-srun --job-name=epa --mem=8gb --nodes=1 --ntasks-per-node=4 --time=1:00:00 --pty $SHELL
-```
-
 ```{bash}
 cd /mnt/nrdstor/richlab/shared/nanomb
 ```
 
+
+```{bash}
+srun --job-name=epa --mem=16gb --nodes=1 --ntasks-per-node=4 --time=3:00:00 --pty bash -l
+```
+
+
 ```{bash}
 module load anaconda
 conda activate "$NRDSTOR/snakemake"
-```
-
-```{bash}
 source profiles/hcc/env_setup.sh
+
 ```
 
 
@@ -53,5 +52,109 @@ snakemake --profile profiles/hcc \
   /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/otu/unknowns.placements.jplace
 ```
 
+```{bash}
+# set your dataset root once
+DSET=/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi
+
+# 1) wipe provenance for the two noisy places
+snakemake --cleanup-metadata $DSET/tmp/demux_index_*.tsv $DSET/unknowns/.cluster.done
+
+snakemake -n epa_fastpath --rerun-triggers mtime
+
+# 2) tell Snakemake to ignore env/conda/container changes and only use mtimes
+snakemake -j 32 --rerun-triggers mtime epa_fastpath
+```
+
+
+```{bash}
+snakemake -n epa_fastpath
+```
+
+```{bash}
+# set once per shell
+DSET=/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi
+
+# 1) touch intermediates that are already done (from the dry-run list)
+cat > /tmp/ok_files.txt <<EOF
+$DSET/tmp/pooled_reads/all_samples_pooled.fastq
+$DSET/tmp/OTUs_pooled/.done
+$DSET/tmp/consensus_drafts_pooled/.done
+$DSET/tmp/pooled/all_draft_otus.fasta
+$DSET/otu/otus_centroids_99.fasta
+$DSET/otu/otus_centroids_97.fasta
+$DSET/otu/otus_centroids_99.uniq.fasta
+$DSET/otu/otus_centroids_97.uniq.fasta
+$DSET/tmp/polished/all_reads.fastq
+$DSET/tmp/polished/map_r0.bam
+$DSET/tmp/polished/r1.fasta
+$DSET/tmp/polished/map_r1.bam
+$DSET/tmp/polished/r2.fasta
+$DSET/tmp/polished/polished_otus.fasta
+$DSET/otu/otus_clean.fasta
+$DSET/otu/otus_chimeras.fasta
+$DSET/otu/otus_taxonomy.sintax
+$DSET/otu/otus_ultraclose_merged.fasta
+$DSET/otu/otu_references_aligned.fasta
+$DSET/otu/otu_tree.treefile
+$DSET/otu/otu_tree.iqtree
+$DSET/otu/.tree.done
+$DSET/otu/otu_tree.model.txt
+$DSET/otu/unknowns_aligned.fasta
+EOF
+
+# touch only files that actually exist
+while IFS= read -r f; do
+  [ -e "$f" ] && touch "$f"
+done < /tmp/ok_files.txt
+
+snakemake --cores 1 --touch fastcat_filter
+snakemake --cores 1 --touch unknown_pool unknown_cluster
+
+# 1) (Optional but helps) Drop stale provenance on the two that still show as missing metadata
+snakemake --cores 1 --drop-metadata \
+  /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/tmp/filtered/.fastcat_filter.done \
+  /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/unknowns/.cluster.done
+  
+snakemake -n epa_place_unknowns graft_unknowns_on_tree epa_fastpath --rerun-triggers mtime
+
+# 2) Touch upstream rule outputs so Snakemake won’t reschedule them
+snakemake --touch \
+  pooled_concat_reads isonclust3_pooled spoa_consensus_pooled \
+  vsearch_pool_cluster uniqify_otu_centroids map_all_reads racon_round1 map_r1 racon_round2 \
+  medaka_polish chimera_taxonomy collapse_ultraclose otu_alignment iqtree3_tree iqtree3_model_extract \
+  align_unknowns_to_backbone
+
+# 3) Now build just the EPA branch and the final sentinel
+snakemake -j 32 --rerun-triggers mtime \
+  epa_place_unknowns graft_unknowns_on_tree epa_fastpath
+
+# 2) optional: drop stale provenance on known markers (avoids harmless warnings)
+snakemake --drop-metadata "$DSET/tmp/filtered/.fastcat_filter.done" "$DSET/unknowns/.cluster.done"
+
+# 3) confirm the cascade is gone
+snakemake -n epa_fastpath --rerun-triggers mtime
+
+# 4) run just what’s truly needed
+snakemake -j 32 epa_fastpath --rerun-triggers mtime
+```
+
+```{bash}
+snakemake -j 16 /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/qc/filtered_manifest.txt
+snakemake --cores 1 --touch unknown_pool unknown_cluster
+```
+OUT, "otu/otu_table_final.synced.tsv"
+```{bash}
+DSET=/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi
+
+# --- Run just the EPA placement rule ---
+snakemake \
+  -n "$DSET/otu/otu_table_final.synced.tsv" \
+  --rerun-incomplete \
+  --rerun-triggers mtime  || true
+```
+
+```{bash}
+snakemake -n  || true
+```
 
 

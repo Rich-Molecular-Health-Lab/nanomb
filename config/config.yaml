@@ -23,6 +23,8 @@ runs:
   - hdz18
   - hdz19
 
+mode: unknowns_only # one of [full], [knowns_only], [unknowns_only]
+
 # --- Root ---
 out_root: "/mnt/nrdstor/richlab/shared/datasets/16s" # Root of all other directories for data
 
@@ -96,7 +98,7 @@ itgdb_minimap:
   details_dir: "itgdb/reads" 
 unknowns:
   enable: true
-  id: 0.90
+  id: 0.70
   iddef: 1
   min_total_abund: 2
   subsample_n: 500000   # 0 = no subsampling
@@ -155,11 +157,11 @@ resources:
   nanoplot_qc:           {threads: 2,  mem_mb: 4000,  runtime: 30,  partition: batch, account: richlab}
 
   stage_wf16s_input:     {threads: 1,  mem_mb: 2000,  runtime: 15,  partition: batch, account: richlab}
-  wf16s_run:             {threads: 12, mem_mb: 64000, runtime: 720, partition: batch, account: richlab}
+  wf16s_run:             {threads: 12, mem_mb: 64000, runtime: 360, partition: batch, account: richlab}
 
   itgdb_index:            {threads: 4,  mem_mb: 8000,  runtime: 60,  partition: batch, account: richlab}
   itgdb_taxmap:           {threads: 1,  mem_mb: 2000,  runtime: 15,  partition: batch, account: richlab}
-  itgdb_map_reads:        {threads: 16, mem_mb: 32000, runtime: 720, partition: batch, account: richlab}
+  itgdb_map_reads:        {threads: 16, mem_mb: 32000, runtime: 360, partition: batch, account: richlab}
   itgdb_species_tables:   {threads: 2,  mem_mb: 8000,  runtime: 30,  partition: batch, account: richlab}
   
   unknown_extract_p_samp: {threads: 1 , mem_mb: 2000 , runtime: 60 , partition: batch, account: richlab}
@@ -174,8 +176,8 @@ resources:
   pooled_concat_reads:   {threads: 2 , mem_mb: 4000 , runtime: 60 , partition: batch, account: richlab}
   isonclust3_pooled:     {threads: 16, mem_mb: 64000, runtime: 240, partition: batch, account: richlab}
   isonclust3:            {threads: 16, mem_mb: 64000, runtime: 240, partition: batch, account: richlab}
-  spoa_consensus_pooled: {threads: 8 , mem_mb: 32000, runtime: 720, partition: batch, account: richlab}
-  spoa_consensus:        {threads: 8,  mem_mb: 32000, runtime: 720, partition: batch, account: richlab}
+  spoa_consensus_pooled: {threads: 8 , mem_mb: 32000, runtime: 360, partition: batch, account: richlab}
+  spoa_consensus:        {threads: 8,  mem_mb: 32000, runtime: 360, partition: batch, account: richlab}
 
   align_unknowns_to_backbone: {threads: 8, mem_mb: 8000, runtime: 60, partition: batch, account: richlab}
   iqtree3_model_extract:  {threads: 1 , mem_mb: 1000 , runtime: 5  ,  partition: batch, account: richlab}
@@ -186,11 +188,11 @@ resources:
   vsearch_pool_cluster:  {threads: 16, mem_mb: 32000, runtime: 300, partition: batch, account: richlab}
   uniqify_otu_centroids: {threads: 16, mem_mb: 32000, runtime: 240, partition: batch, account: richlab}
   map_all_reads:         {threads: 16, mem_mb: 32000, runtime: 240, partition: batch, account: richlab}
-  racon_round1:          {threads: 16, mem_mb: 96000, runtime: 720, partition: batch, account: richlab}
+  racon_round1:          {threads: 12, mem_mb: 96000, runtime: 240, partition: batch, account: richlab}
   map_r1:                {threads: 8,  mem_mb: 24000, runtime: 180, partition: batch, account: richlab}
-  racon_round2:          {threads: 16, mem_mb: 96000, runtime: 720, partition: batch, account: richlab}
+  racon_round2:          {threads: 12, mem_mb: 96000, runtime: 240, partition: batch, account: richlab}
   chimera_taxonomy:      {threads: 16, mem_mb: 32000, runtime: 240, partition: batch, account: richlab}
   collapse_ultraclose:   {threads: 8,  mem_mb: 32000, runtime: 240, partition: batch, account: richlab}
   otu_alignment:         {threads: 16, mem_mb: 32000, runtime: 240, partition: batch, account: richlab}
-  iqtree3_tree:          {threads: 16, mem_mb: 64000, runtime: 720, partition: batch, account: richlab}
+  iqtree3_tree:          {threads: 16, mem_mb: 64000, runtime: 240, partition: batch, account: richlab}
   otu_table_per_sample:  {threads: 16, mem_mb: 16000, runtime: 180, partition: batch, account: richlab}

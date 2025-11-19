@@ -31,5 +31,4 @@ restart-times: 1
 printshellcmds: true
 verbose: false
 show-failed-logs: true   
-printshellcmds: true    
 scheduler: greedy        
