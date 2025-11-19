@@ -23,7 +23,7 @@ runs:
   - hdz18
   - hdz19
 
-mode: unknowns_only # one of [full], [knowns_only], [unknowns_only]
+mode: full # one of [full], [knowns_only], [unknowns_only]
 
 # --- Root ---
 out_root: "/mnt/nrdstor/richlab/shared/datasets/16s" # Root of all other directories for data
@@ -65,6 +65,21 @@ container_nanoalign: "$PROJ_ROOT/containers/nanoalign.sif"
 container_dorado:    "$PROJ_ROOT/containers/dorado.sif"
 container_tree:       "$PROJ_ROOT/containers/nanotree.sif"
 
+unknowns:
+  enable: true
+  id: 0.70
+  iddef: 1
+  min_total_abund: 2
+  subsample_n: 500000   # 0 = no subsampling
+wf16s:
+  enable: false                 
+  repo: "epi2me-labs/wf-16s"              # nextflow pipeline repo
+  profile: "singularity"                  # or "docker" if you run docker
+  extra_args: "--minimap2_by_reference"   # anything else you want to pass
+  out_dir: ""                             # default set in Snakefile → OUT+"/wf16s"
+  work_dir: ""                            # default set in Snakefile → TMP+"/wf16s_work"
+  rev: ""
+
 # --- References ---
 itgdb:
   seq_fasta:  "/mnt/nrdstor/richlab/shared/databases/itgdb_16s/taxa_itgdb_seq.fasta"
@@ -96,12 +111,6 @@ itgdb_minimap:
   mapq_min: 5          # PAF col12 (plan to filter more in R if using a value </=10)
   aln_min_bp: 600      # PAF col11 (aln block length)
   details_dir: "itgdb/reads" 
-unknowns:
-  enable: true
-  id: 0.70
-  iddef: 1
-  min_total_abund: 2
-  subsample_n: 500000   # 0 = no subsampling
 
 # --- Clustering ---
 pooled:
@@ -136,15 +145,6 @@ epa_ng:
   mpi_ranks: 1      # set >1 to use MPI build
   extra: ""         # e.g., "--filter-acc-lwr 0.99" if desired
 
-# --- Optional Ep2ME Labs wf-16s for cross-referencing ---
-wf16s:
-  enable: false                 
-  repo: "epi2me-labs/wf-16s"              # nextflow pipeline repo
-  profile: "singularity"                  # or "docker" if you run docker
-  extra_args: "--minimap2_by_reference"   # anything else you want to pass
-  out_dir: ""                             # default set in Snakefile → OUT+"/wf16s"
-  work_dir: ""                            # default set in Snakefile → TMP+"/wf16s_work"
-  rev: ""
 
 # --- Resources (per-rule; partitions differ where needed) ---
 resources:

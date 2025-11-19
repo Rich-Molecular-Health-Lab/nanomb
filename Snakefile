@@ -379,7 +379,12 @@ def filtered_stems_from_manifest(wc):
             if not fn:
                 continue
             bn = os.path.basename(fn)
-            stems.add(bn.replace(".fastq.gz", "").replace(".fastq", ""))
+            if "*" in bn:                
+                continue
+            stem = bn.replace(".fastq.gz", "").replace(".fastq", "")
+            if not stem:                
+                continue
+            stems.add(stem)
     return sorted(stems)
 
 def trim_fastqs_for_run(wc):
@@ -2185,8 +2190,10 @@ if enabled_unknowns():
     
     def _unknown_pool_inputs(wc):
         from snakemake.io import expand
+        raw = filtered_stems_from_manifest(wc)
+        stems = [s for s in raw if s and s not in (".","..","/") and "*" not in s]
         return expand(os.path.join(UNKNOWN_DIR, "{stem}.unknown.fastq.sub.fastq"),
-                      stem=filtered_stems_from_manifest(wc))
+                      stem=stems)
         
     def list_unknown_subs(_wc=None):
         stems = filtered_stems_from_manifest(_wc)
@@ -2310,11 +2317,21 @@ if enabled_unknowns():
             extra     = R("unknown_pool", "extra"),
         container: CONTAINERS["cpu"]
         run:
-            import shutil
+            import os, shutil
+            os.makedirs(os.path.dirname(output[0]), exist_ok=True)
+    
+            wrote = 0
             with open(output[0], "wb") as outfh:
                 for f in input.pool:
+                    if not f or f == "/" or not os.path.isfile(f):
+                        continue
                     with open(f, "rb") as infh:
                         shutil.copyfileobj(infh, outfh, length=1024*1024)
+                        wrote += 1
+    
+            if wrote == 0:
+                with open(output[0], "wb"):
+                    pass
     
     rule unknown_cluster:
         input: pool = rules.unknown_pool.output.pool

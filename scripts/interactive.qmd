@@ -9,7 +9,7 @@ cd /mnt/nrdstor/richlab/shared/nanomb
 
 
 ```{bash}
-srun --job-name=epa --mem=16gb --nodes=1 --ntasks-per-node=4 --time=3:00:00 --pty bash -l
+srun --job-name=nanomb --mem=16gb --nodes=1 --ntasks-per-node=4 --time=3:00:00 --pty bash -l
 ```
 
 
@@ -19,6 +19,16 @@ conda activate "$NRDSTOR/snakemake"
 source profiles/hcc/env_setup.sh
 
 ```
+
+```{bash}
+DSET=/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi
+
+# --- Run just the EPA placement rule ---
+snakemake \
+  -n "$DSET/otu/otu_tree.with_unknowns.nwk" \
+  --rerun-triggers mtime  || true
+```
+  --rerun-incomplete \
 
 
 ```{bash}
@@ -143,18 +153,9 @@ snakemake -j 16 /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/qc/filtered_
 snakemake --cores 1 --touch unknown_pool unknown_cluster
 ```
 OUT, "otu/otu_table_final.synced.tsv"
-```{bash}
-DSET=/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi
-
-# --- Run just the EPA placement rule ---
-snakemake \
-  -n "$DSET/otu/otu_table_final.synced.tsv" \
-  --rerun-incomplete \
-  --rerun-triggers mtime  || true
-```
 
 ```{bash}
 snakemake -n  || true
 ```
 
-
+/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi_archive

@@ -27,12 +27,11 @@ DSET=/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi
 
 # --- Run just the EPA placement rule ---
 snakemake \
+  "$DSET/otu/otu_tree.with_unknowns.nwk" \
   --profile profiles/hcc \
   --cores 16 \
-  --rerun-incomplete \
   --rerun-triggers mtime \
   --restart-times 1 \
   --keep-going \
   --printshellcmds \
-  --jobs 1 \
-  "$DSET/otu/unknowns.placements.jplace"
+  --jobs 1
