@@ -26,5 +26,7 @@ apptainer pull nanomb.sif docker://aliciamrich/nanomb-cpu:2025-10-11
 apptainer pull nanombgpu.sif docker://aliciamrich/nanombgpu:0.2.0-gpu
 apptainer pull nanoalign.sif docker://aliciamrich/nanoalign:cpu
 apptainer pull nanotree.sif docker://aliciamrich/nanotree:0.5
+apptainer pull seqtk.sif docker://staphb/seqtk:latest
+apptainer pull biopython.sif docker://biopython/biopython:latest
 
 echo "prepull complete"

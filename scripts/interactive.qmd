@@ -12,6 +12,32 @@ cd /mnt/nrdstor/richlab/shared/nanomb
 srun --job-name=nanomb --mem=16gb --nodes=1 --ntasks-per-node=4 --time=3:00:00 --pty bash -l
 ```
 
+```{bash}
+srun --job-name=container --mem=8gb --nodes=1 --ntasks-per-node=4 --time=1:00:00 --pty $SHELL
+```
+
+```{bash}
+module load apptainer
+
+cd /mnt/nrdstor/richlab/shared/nanomb
+
+mkdir -p containers
+
+cd containers
+
+# pull all images you referenced in config.yaml
+apptainer pull dorado.sif docker://nanoporetech/dorado:latest
+apptainer pull nextflow.sif docker://nextflow/nextflow:25.10.0
+apptainer pull nanomb.sif docker://aliciamrich/nanomb-cpu:2025-10-11
+apptainer pull nanombgpu.sif docker://aliciamrich/nanombgpu:0.2.0-gpu
+apptainer pull nanoalign.sif docker://aliciamrich/nanoalign:cpu
+apptainer pull nanotree.sif docker://aliciamrich/nanotree:0.5
+apptainer pull seqtk.sif docker://staphb/seqtk:latest
+apptainer pull biopython.sif docker://biopython/biopython:latest
+
+```
+
+
 
 ```{bash}
 module load anaconda
@@ -152,10 +178,8 @@ snakemake -j 32 epa_fastpath --rerun-triggers mtime
 snakemake -j 16 /mnt/nrdstor/richlab/shared/datasets/16s/loris/culi/qc/filtered_manifest.txt
 snakemake --cores 1 --touch unknown_pool unknown_cluster
 ```
-OUT, "otu/otu_table_final.synced.tsv"
 
 ```{bash}
 snakemake -n  || true
 ```
 
-/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi_archive

@@ -164,6 +164,13 @@ CONTAINERS = {
     "nanoalign": _expand(config.get("container_nanoalign", "$PROJ_ROOT/containers/nanoalign.sif")),
     "tree":      _expand(config.get("container_tree",      "$PROJ_ROOT/containers/nanotree.sif")),
     "dorado":    _expand(config.get("container_dorado",    "$PROJ_ROOT/containers/dorado.sif")),
+    "seqtk":     _expand(config.get("container_seqtk",     "$PROJ_ROOT/containers/seqtk.sif")),
+    "biopython": _expand(config.get("container_biopython", "$PROJ_ROOT/containers/biopython.sif")),
+}
+
+# Scripts
+SCRIPTS = {
+    "sync_exports_for_R": _expand(config.get("script_sync_exports_for_R", "$PROJ_ROOT/scripts/sync_exports_for_R.py")),
 }
 
 TREE_WRAP = "micromamba run -n nanotree"
@@ -751,7 +758,7 @@ rule stage_wf16s_input:
     input:
         filt_done = lambda wc: checkpoints.fastcat_filter.get().output.done
     output:
-        indir = PATH_T["dset"]["wf16s_in"],
+        indir = directory(PATH_T["dset"]["wf16s_in"]),
         done  = touch(os.path.join(PATH_T["dset"]["wf16s_in"], ".staged.ok"))
     threads: Rq("stage_wf16s_input", "threads")
     resources:
@@ -772,7 +779,6 @@ rule stage_wf16s_input:
 
         os.makedirs(out_dir, exist_ok=True)
 
-        # Gather both .fastq and .fastq.gz produced by fastcat_filter
         files = sorted(glob.glob(os.path.join(in_dir, "*.fastq"))) + \
                 sorted(glob.glob(os.path.join(in_dir, "*.fastq.gz")))
 
@@ -2254,54 +2260,29 @@ if enabled_unknowns():
             account   = Rq("unknown_subsample", "account"),
             extra     = R("unknown_subsample", "extra"),
         params:
-            n = lambda wc: int(config.get("unknowns", {}).get("subsample_n", 0))
-        container: CONTAINERS["cpu"]
+            n = lambda wc: int(config.get("unknowns", {}).get("subsample_n", 0)),
+            seed = int(config.get("unknowns", {}).get("subsample_seed", 100))
+        container: CONTAINERS["seqtk"]
         shell: r"""
           set -euo pipefail
+    
           n={params.n}
           if [ "$n" -le 0 ]; then
             cp -f "{input.unk}" "{output.sub}"
             exit 0
           fi
     
-          PYBIN=$(command -v python || command -v python3 || true)
-          if [ -n "$PYBIN" ]; then
-            "$PYBIN" - <<'PY' "{input.unk}" "{output.sub}" $n
-    import sys, random, gzip
-    src, dst, n = sys.argv[1], sys.argv[2], int(sys.argv[3])
-    random.seed(100)
+          command -v seqtk >/dev/null || {{ echo "seqtk not found in container PATH"; exit 127; }}
     
-    def open_any(p, mode):
-        return gzip.open(p, mode) if p.endswith(".gz") else open(p, mode)
-    
-    reservoir = []
-    count = 0
-    
-    with open_any(src, "rt") as f:
-        while True:
-            h = f.readline()
-            if not h: break
-            s = f.readline(); plus = f.readline(); q = f.readline()
-            if not q: break
-            rec = (h, s, plus, q)
-            count += 1
-            if len(reservoir) < n:
-                reservoir.append(rec)
-            else:
-                j = random.randrange(count)
-                if j < n:
-                    reservoir[j] = rec
-    
-    with open(dst, "w") as out:
-        for (h,s,p,q) in reservoir:
-            out.write(h); out.write(s); out.write(p); out.write(q)
-    PY
-            exit 0
+          in="{input.unk}"
+          if [[ "$in" == *.gz ]]; then
+            zcat -- "$in" | seqtk sample -s{params.seed} - "$n" > "{output.sub}"
+          else
+            seqtk sample -s{params.seed} "$in" "$n" > "{output.sub}"
           fi
     
-          echo "No Python found for subsampling and n>0. Consider installing seqtk or adding Python." >&2
-          exit 127
-        """
+          awk 'END{{ if (NR%4!=0) exit 1 }}' "{output.sub}"
+            """
     
     rule unknown_pool:
         input:
@@ -2604,15 +2585,30 @@ if enabled_unknowns():
         container: CONTAINERS["tree"]
         shell: r"""
           set -euo pipefail
-          {params.wrap} which gappa >/dev/null || {{ echo "gappa not found in nanotree env"; exit 127; }}
+          exec > "{log}" 2>&1
+    
+          export CONDA_PREFIX=/opt/conda/envs/nanotree
+          export PATH="$CONDA_PREFIX/bin:/opt/conda/bin:$PATH"
+    
+          command -v gappa >/dev/null || {{ echo "gappa not found"; exit 127; }}
+    
           outdir="$(dirname "{output.tree_grafted}")/gappa_out"
-          rm -rf "$outdir"
-          {params.wrap} gappa graft \
+          rm -rf "$outdir"; mkdir -p "$outdir"
+    
+          # If the jplace is empty/minimal, just copy the original tree
+          if ! grep -q '"'"'placements'"'"' "{input.jplace}"; then
+            echo "[gappa graft] empty placements; copying backbone tree" >&2
+            cp -f "{input.tree}" "{output.tree_grafted}"
+            exit 0
+          fi
+    
+          gappa graft \
             --jplace "{input.jplace}" \
             --reference-tree "{input.tree}" \
             --out-dir "$outdir" \
             --allow-file-overwriting
-          mv -f "$outdir"/grafted.tre "{output.tree_grafted}"
+    
+          mv -f "$outdir/grafted.tre" "{output.tree_grafted}"
           rm -rf "$outdir" || true
         """                
 
@@ -2777,7 +2773,6 @@ rule apply_taxonomy_filter:
 rule sync_exports_for_R:
     input:
         table         = rules.apply_taxonomy_filter.output.final,
-        tax           = rules.otu_taxonomy_best.output.tax,
         fasta_known   = rules.collapse_ultraclose.output.fasta,
         fasta_unknown = _sync_unknown_fasta,
         tree          = _sync_tree_input
@@ -2793,50 +2788,85 @@ rule sync_exports_for_R:
         account   = Rq("sync_exports_for_R", "account"),
         extra     = R( "sync_exports_for_R", "extra")
     log: os.path.join(OUT, "logs/sync_exports_for_R.log")
-    container: CONTAINERS["cpu"]
-    run:
-        from Bio import Phylo, SeqIO
-        import csv, io, sys, os
+    container: CONTAINERS["biopython"]
+    shell: r"""
+      set -euo pipefail
+      exec > "{log}" 2>&1
 
-        # 1) read tree tips
-        tr = Phylo.read(input.tree, "newick")
-        tips = [t.name for t in tr.get_terminals() if t.name]
+      PYBIN=$(command -v python3 || command -v python || true)
+      if [ -z "$PYBIN" ]; then
+        echo "[sync] ERROR: no python interpreter found inside container." >&2
+        exit 127
+      fi
 
-        # 2) filter OTU table to tree tips (preserve column order)
-        with open(input.table, newline="") as fh:
-            rows = list(csv.reader(fh, delimiter="\t"))
-        header, body = rows[0], rows[1:]
-        keep = []
-        for r in body:
-            if r and r[0] in tips:
-                keep.append(r)
-        with open(output.table_sync, "w", newline="") as fo:
-            w = csv.writer(fo, delimiter="\t")
-            w.writerow(header)
-            w.writerows(sorted(keep, key=lambda x: x[0]))
+      "$PYBIN" - <<'PY'
+from Bio import Phylo, SeqIO
+import csv, os, sys
 
-        # 3) build mapping of sequences from known + unknown
-        seqs = {}
-        for fn in (input.fasta_known, input.fasta_unknown):
-            if os.path.exists(fn) and os.path.getsize(fn) > 0:
-                for rec in SeqIO.parse(fn, "fasta"):
-                    # keep simple OTU ID before space/pipe if present
-                    rid = str(rec.id).split()[0].split("|")[0]
-                    seqs[rid] = rec.seq
+table = r"""{input.table}"""
+fasta_known = r"""{input.fasta_known}"""
+fasta_unknown = r"""{input.fasta_unknown}"""
+tree_in = r"""{input.tree}"""
+table_out = r"""{output.table_sync}"""
+fasta_out = r"""{output.fasta_sync}"""
+tree_out = r"""{output.tree_sync}"""
 
-        # 4) write FASTA only for OTUs that remain in synced table
-        keep_ids = set(r[0] for r in keep)
-        with open(output.fasta_sync, "w") as fo:
-            for oid in sorted(keep_ids):
-                if oid in seqs:
-                    fo.write(f">{oid}\n{str(seqs[oid])}\n")
+# 1) Read tree tips
+try:
+    tr = Phylo.read(tree_in, "newick")
+except Exception as e:
+    sys.stderr.write("[sync] ERROR: failed to read Newick tree: %s\n" % e)
+    sys.exit(2)
 
-        # 5) prune tree to synced tips (defensive) and write
-        tipset = set(keep_ids)
-        for cl in list(tr.get_terminals()):
-            if cl.name not in tipset:
-                tr.prune(target=cl)
-        Phylo.write(tr, output.tree_sync, "newick")
+tips = [t.name for t in tr.get_terminals() if t.name]
+tipset = set(tips)
+print("[sync] loaded tree with %d tips" % len(tips))
+
+# 2) Filter OTU table to tree tips (preserve header, sort by OTU id)
+with open(table, newline="") as fh:
+    rows = list(csv.reader(fh, delimiter="\t"))
+if not rows:
+    print("[sync] WARN: input table empty; writing empty outputs")
+    os.makedirs(os.path.dirname(table_out), exist_ok=True)
+    open(table_out, "w").write("OTU\n")
+    open(fasta_out, "w").close()
+    Phylo.write(tr, tree_out, "newick")
+    sys.exit(0)
+
+header, body = rows[0], rows[1:]
+keep = [r for r in body if r and r[0] in tipset]
+os.makedirs(os.path.dirname(table_out), exist_ok=True)
+with open(table_out, "w", newline="") as fo:
+    w = csv.writer(fo, delimiter="\t")
+    w.writerow(header)
+    for r in sorted(keep, key=lambda x: x[0]):
+        w.writerow(r)
+print("[sync] kept %d OTUs; wrote %s" % (len(keep), table_out))
+
+# 3) Collect sequences from known + unknown
+seqs = {}
+for fn in (fasta_known, fasta_unknown):
+    if os.path.exists(fn) and os.path.getsize(fn) > 0:
+        for rec in SeqIO.parse(fn, "fasta"):
+            rid = str(rec.id).split()[0].split("|")[0]
+            seqs[rid] = str(rec.seq)
+
+# 4) Write FASTA only for kept OTUs
+keep_ids = {r[0] for r in keep}
+with open(fasta_out, "w") as fo:
+    for oid in sorted(keep_ids):
+        if oid in seqs:
+            fo.write(">%s\n%s\n" % (oid, seqs[oid]))
+print("[sync] wrote %s with %d sequences" % (fasta_out, sum(1 for _ in keep_ids if _ in seqs)))
+
+# 5) Prune tree to synced tips (defensive) and write
+for cl in list(tr.get_terminals()):
+    if cl.name not in keep_ids:
+        tr.prune(target=cl)
+Phylo.write(tr, tree_out, "newick")
+print("[sync] wrote pruned tree to %s" % tree_out)
+PY
+    """
 
 # -------- convenience targets so you can call subsets easily --------
 
