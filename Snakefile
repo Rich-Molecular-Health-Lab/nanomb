@@ -168,11 +168,6 @@ CONTAINERS = {
     "biopython": _expand(config.get("container_biopython", "$PROJ_ROOT/containers/biopython.sif")),
 }
 
-# Scripts
-SCRIPTS = {
-    "sync_exports_for_R": _expand(config.get("script_sync_exports_for_R", "$PROJ_ROOT/scripts/sync_exports_for_R.py")),
-}
-
 TREE_WRAP = "micromamba run -n nanotree"
 
 # --- Nextflow wf-16s integration (optional) ---
@@ -2803,13 +2798,13 @@ rule sync_exports_for_R:
 from Bio import Phylo, SeqIO
 import csv, os, sys
 
-table = r"""{input.table}"""
-fasta_known = r"""{input.fasta_known}"""
-fasta_unknown = r"""{input.fasta_unknown}"""
-tree_in = r"""{input.tree}"""
-table_out = r"""{output.table_sync}"""
-fasta_out = r"""{output.fasta_sync}"""
-tree_out = r"""{output.tree_sync}"""
+table = "{input.table}"
+fasta_known = "{input.fasta_known}"
+fasta_unknown = "{input.fasta_unknown}"
+tree_in = "{input.tree}"
+table_out = "{output.table_sync}"
+fasta_out = "{output.fasta_sync}"
+tree_out = "{output.tree_sync}"
 
 # 1) Read tree tips
 try:
@@ -2844,7 +2839,7 @@ with open(table_out, "w", newline="") as fo:
 print("[sync] kept %d OTUs; wrote %s" % (len(keep), table_out))
 
 # 3) Collect sequences from known + unknown
-seqs = {}
+seqs = {{}}
 for fn in (fasta_known, fasta_unknown):
     if os.path.exists(fn) and os.path.getsize(fn) > 0:
         for rec in SeqIO.parse(fn, "fasta"):
@@ -2852,7 +2847,7 @@ for fn in (fasta_known, fasta_unknown):
             seqs[rid] = str(rec.seq)
 
 # 4) Write FASTA only for kept OTUs
-keep_ids = {r[0] for r in keep}
+keep_ids = {{r[0] for r in keep}}
 with open(fasta_out, "w") as fo:
     for oid in sorted(keep_ids):
         if oid in seqs:

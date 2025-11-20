@@ -52,9 +52,6 @@ layout: # You only need to begin by transferring pod5_dir, sample_sheet_dir, sam
   demux_dir:          "{sampleset}/demuxed/{run}"
   summary_dir:        "{sampleset}/dorado_summaries/{run}"
 
-# ----- Scripts ----
-script_sync_exports_for_R: "$PROJ_ROOT/scripts/sync_exports_for_R.py"
-
 # --- Containers ---
 container_rev:
   cpu: 2025-10-11a
@@ -63,6 +60,7 @@ container_rev:
   dorado: 2025-10-05
   tree: 0.5
   seqtk: 1.5
+  biopython: 1.0
 container_cpu:       "$PROJ_ROOT/containers/nanomb.sif"
 container_gpu:       "$PROJ_ROOT/containers/nanombgpu.sif"
 container_nanoalign: "$PROJ_ROOT/containers/nanoalign.sif"

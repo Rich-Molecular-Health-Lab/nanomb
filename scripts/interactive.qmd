@@ -33,7 +33,7 @@ apptainer pull nanombgpu.sif docker://aliciamrich/nanombgpu:0.2.0-gpu
 apptainer pull nanoalign.sif docker://aliciamrich/nanoalign:cpu
 apptainer pull nanotree.sif docker://aliciamrich/nanotree:0.5
 apptainer pull seqtk.sif docker://staphb/seqtk:latest
-apptainer pull biopython.sif docker://biopython/biopython:latest
+apptainer pull biopython.sif docker://aliciamrich/biopython-sync:0.1
 
 ```
 
@@ -181,5 +181,10 @@ snakemake --cores 1 --touch unknown_pool unknown_cluster
 
 ```{bash}
 snakemake -n  || true
+```
+
+
+```{bash}
+docker buildx build --platform linux/amd64 -t docker.io/aliciamrich/biopython-sync:1.0 --push .
 ```
 
