@@ -26,7 +26,7 @@ source profiles/hcc/env_setup.sh
 snakemake all \
   --profile profiles/hcc \
   --rerun-incomplete \
-  --rerun-triggers mtime \
+  --rerun-triggers params \
   --restart-times 2 \
   --keep-going \
   --printshellcmds 

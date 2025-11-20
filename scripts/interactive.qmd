@@ -185,6 +185,18 @@ snakemake -n  || true
 
 
 ```{bash}
-docker buildx build --platform linux/amd64 -t docker.io/aliciamrich/biopython-sync:1.0 --push .
+docker buildx build --platform linux/amd64 -t aliciamrich/biopython-sync:1.0 --push .
 ```
+
+```{bash}
+apptainer exec "biopython.sif" python3 - <<'PY'
+from Bio import Phylo, SeqIO
+print("biopython OK")
+PY
+```
+
+```{bash}
+/mnt/nrdstor/richlab/shared/datasets/16s/loris/culi_archive
+```
+
 

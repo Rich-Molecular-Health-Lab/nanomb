@@ -71,10 +71,10 @@ container_biopython:  "$PROJ_ROOT/containers/biopython.sif"
 
 unknowns:
   enable: true
-  id: 0.70
+  id: 0.80
   iddef: 1
   min_total_abund: 2
-  subsample_n: 500000   # 0 = no subsampling
+  subsample_n: 800000   # 0 = no subsampling
 wf16s:
   enable: false                 
   repo: "epi2me-labs/wf-16s"              # nextflow pipeline repo
@@ -106,7 +106,7 @@ trim_skip_glob: ["*NTC*", "*unclassified*"]
 # --- Fastcat Filtering ---
 minlength: 1200
 maxlength: 1800
-min_qscore: 14
+min_qscore: 12
 
 # --- ITGDB mapping branch ---
 itgdb_minimap:
@@ -128,10 +128,10 @@ spoa_min_reads: 2
 spoa_extra: ""
 
 # --- VSEARCH OTUs / mapping / taxonomy ---
-otu_id_primary: 0.995
+otu_id_primary: 0.985
 otu_id_legacy:  0.97
-map_id: 0.90
-collapse_id: 0.997
+map_id: 0.85
+collapse_id: 0.995
 strand: both
 sintax_cutoff: 0.2
 min_unique_size: 1
@@ -140,8 +140,8 @@ taxonomy_filter:
   patterns: ["Eukaryota", "Chloroplast", "Mitochondria"]
 otu_mapping:
   iddef: 1          # vsearch identity definition (0=global,1=local)
-  qcov: 0.80        # minimum query coverage fraction
-  tcov: 0.80        # minimum target coverage fraction
+  qcov: 0.70        # minimum query coverage fraction
+  tcov: 0.70        # minimum target coverage fraction
   qmask: "none"     # masking method for low-complexity regions
 medaka_batch: 100
 max_medaka_reads: 500000
