@@ -166,6 +166,7 @@ CONTAINERS = {
     "dorado":    _expand(config.get("container_dorado",    "$PROJ_ROOT/containers/dorado.sif")),
     "seqtk":     _expand(config.get("container_seqtk",     "$PROJ_ROOT/containers/seqtk.sif")),
     "biopython": _expand(config.get("container_biopython", "$PROJ_ROOT/containers/biopython.sif")),
+    "trimal":    _expand(config.get("container_trimal",    "$PROJ_ROOT/containers/trimal.sif")),
 }
 
 TREE_WRAP = "micromamba run -n nanotree"
@@ -1782,6 +1783,26 @@ rule otu_alignment:
       {params.wrap} mafft --auto --thread {threads} "$tmpfa" > "{output.msa}"
       rm -f "$tmpfa"
    
+    """
+
+rule trim_alignment:
+    input:
+        msa = rules.otu_alignment.output.msa
+    output:
+        msa_trim = os.path.join(OUT, "otu/otu_references_aligned.trim.fasta")
+    threads: Rq("trim_alignment", "threads")
+    resources:
+        mem_mb    = Rq("trim_alignment", "mem_mb"),
+        runtime   = Rq("trim_alignment", "runtime"),
+        partition = Rq("trim_alignment", "partition"),
+        account   = Rq("trim_alignment", "account"),
+        extra     = R( "trim_alignment", "extra")
+    log: os.path.join(OUT, "logs/trim_alignment.log")
+    container: CONTAINERS["trimal"]  
+    shell: r"""
+      set -euo pipefail
+      mkdir -p "$(dirname "{output.msa_trim}")"
+      trimal -in "{input.msa}" -out "{output.msa_trim}" -gt 0.8
     """
     
 rule iqtree3_tree:
