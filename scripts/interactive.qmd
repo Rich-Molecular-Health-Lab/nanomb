@@ -9,7 +9,7 @@ cd /mnt/nrdstor/richlab/shared/nanomb
 
 
 ```{bash}
-srun --job-name=nanomb --mem=16gb --nodes=1 --ntasks-per-node=4 --time=3:00:00 --pty bash -l
+srun --job-name=smoke --mem=16gb --nodes=1 --ntasks-per-node=4 --time=3:00:00 --pty bash -l
 ```
 
 ```{bash}
@@ -34,6 +34,7 @@ apptainer pull nanoalign.sif docker://aliciamrich/nanoalign:cpu
 apptainer pull nanotree.sif docker://aliciamrich/nanotree:0.5
 apptainer pull seqtk.sif docker://staphb/seqtk:latest
 apptainer pull biopython.sif docker://aliciamrich/biopython-sync:0.1
+apptainer pull trimal.sif docker://staphb/trimal:latest
 
 ```
 

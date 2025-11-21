@@ -205,6 +205,7 @@ COLLAPSE_ID   = float(config.get("collapse_id", 0.997))
 STRAND        = config.get("strand", "both")
 SINTAX_CUTOFF = float(config.get("sintax_cutoff", 0.5))
 MIN_UNIQUE    = int(config.get("min_unique_size", 1))
+TRIMAL_GT     = float(config.get("trimal_gt", 0.8))
 
 # Polishing paths
 POLISH_DIR   = os.path.join(TMP, "polished")
@@ -1797,17 +1798,19 @@ rule trim_alignment:
         partition = Rq("trim_alignment", "partition"),
         account   = Rq("trim_alignment", "account"),
         extra     = R( "trim_alignment", "extra")
+    params:
+        gt = TRIMAL_GT
     log: os.path.join(OUT, "logs/trim_alignment.log")
     container: CONTAINERS["trimal"]  
     shell: r"""
       set -euo pipefail
       mkdir -p "$(dirname "{output.msa_trim}")"
-      trimal -in "{input.msa}" -out "{output.msa_trim}" -gt 0.8
+      trimal -in "{input.msa}" -out "{output.msa_trim}" -gt {params.gt}
     """
     
 rule iqtree3_tree:
     input:
-        msa = rules.otu_alignment.output.msa
+        msa = rules.trim_alignment.output.msa_trim
     output:
         tree = os.path.join(OUT, "otu/otu_tree.treefile"),
         iq   = os.path.join(OUT, "otu/otu_tree.iqtree"),
@@ -2497,7 +2500,7 @@ if enabled_unknowns():
             
     rule align_unknowns_to_backbone:
         input:
-            backbone = rules.otu_alignment.output.msa,
+            backbone = rules.trim_alignment.output.msa_trim,
             unk      = rules.unknown_cluster.output.cent_filt,
             done     = rules.unknown_cluster.output.done
         output:
@@ -2525,7 +2528,7 @@ if enabled_unknowns():
         
     rule epa_place_unknowns:
         input:
-            backbone_msa = rules.otu_alignment.output.msa,
+            backbone_msa = rules.trim_alignment.output.msa_trim,
             backbone_tree = rules.iqtree3_tree.output.tree,
             q_aln = rules.align_unknowns_to_backbone.output.q_aln,
             model = rules.iqtree3_model_extract.output.model

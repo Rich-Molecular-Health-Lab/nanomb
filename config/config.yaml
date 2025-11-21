@@ -61,6 +61,7 @@ container_rev:
   tree: 0.5
   seqtk: 1.5
   biopython: 1.0
+  trimal: 1.5.0
 container_cpu:       "$PROJ_ROOT/containers/nanomb.sif"
 container_gpu:       "$PROJ_ROOT/containers/nanombgpu.sif"
 container_nanoalign: "$PROJ_ROOT/containers/nanoalign.sif"
@@ -68,6 +69,7 @@ container_dorado:    "$PROJ_ROOT/containers/dorado.sif"
 container_tree:       "$PROJ_ROOT/containers/nanotree.sif"
 container_seqtk:      "$PROJ_ROOT/containers/seqtk.sif"
 container_biopython:  "$PROJ_ROOT/containers/biopython.sif"
+container_trimal:     "$PROJ_ROOT/containers/trimal.sif"
 
 unknowns:
   enable: true
@@ -76,10 +78,10 @@ unknowns:
   min_total_abund: 2
   subsample_n: 800000   # 0 = no subsampling
 wf16s:
-  enable: false                 
+  enable: true                 
   repo: "epi2me-labs/wf-16s"              # nextflow pipeline repo
   profile: "singularity"                  # or "docker" if you run docker
-  extra_args: "--minimap2_by_reference"   # anything else you want to pass
+  extra_args: "--minimap2_by_reference --igv --include_read_assignments"   # anything else you want to pass
   out_dir: ""                             # default set in Snakefile → OUT+"/wf16s"
   work_dir: ""                            # default set in Snakefile → TMP+"/wf16s_work"
   rev: ""
@@ -148,6 +150,7 @@ max_medaka_reads: 500000
 epa_ng:
   mpi_ranks: 1      # set >1 to use MPI build
   extra: ""         # e.g., "--filter-acc-lwr 0.99" if desired
+trimal_gt: 0.8
 
 
 # --- Resources (per-rule; partitions differ where needed) ---
@@ -161,11 +164,11 @@ resources:
   nanoplot_qc:           {threads: 2,  mem_mb: 4000,  runtime: 30,  partition: batch, account: richlab}
 
   stage_wf16s_input:     {threads: 1,  mem_mb: 2000,  runtime: 15,  partition: batch, account: richlab}
-  wf16s_run:             {threads: 12, mem_mb: 64000, runtime: 360, partition: batch, account: richlab}
+  wf16s_run:             {threads: 12, mem_mb: 64000, runtime: 240, partition: batch, account: richlab}
 
   itgdb_index:            {threads: 4,  mem_mb: 8000,  runtime: 60,  partition: batch, account: richlab}
   itgdb_taxmap:           {threads: 1,  mem_mb: 2000,  runtime: 15,  partition: batch, account: richlab}
-  itgdb_map_reads:        {threads: 16, mem_mb: 32000, runtime: 360, partition: batch, account: richlab}
+  itgdb_map_reads:        {threads: 16, mem_mb: 32000, runtime: 240, partition: batch, account: richlab}
   itgdb_species_tables:   {threads: 2,  mem_mb: 8000,  runtime: 30,  partition: batch, account: richlab}
   
   unknown_extract_p_samp: {threads: 1 , mem_mb: 2000 , runtime: 60 , partition: batch, account: richlab}
@@ -184,6 +187,7 @@ resources:
   spoa_consensus:        {threads: 8,  mem_mb: 32000, runtime: 360, partition: batch, account: richlab}
 
   align_unknowns_to_backbone: {threads: 8, mem_mb: 8000, runtime: 60, partition: batch, account: richlab}
+  trim_alignment:         {threads: 2 , mem_mb: 8000 , runtime: 30  ,  partition: batch, account: richlab}
   iqtree3_model_extract:  {threads: 1 , mem_mb: 1000 , runtime: 5  ,  partition: batch, account: richlab}
   epa_place_unknowns:     {threads: 16, mem_mb: 32000, runtime: 180, partition: batch, account: richlab}
   graft_unknowns_on_tree: {threads: 2 , mem_mb: 2000 , runtime: 15 , partition: batch, account: richlab}
